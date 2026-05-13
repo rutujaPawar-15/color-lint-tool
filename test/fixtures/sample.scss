@@ -1,0 +1,17 @@
+/* This file is for testing the color lint tool */
+
+.button {
+  background-color: #ff0000; /* Hard-coded hex - should be detected */
+  color: rgb(255, 255, 255); /* Hard-coded rgb - should be detected */
+  border: 1px solid var(--primary-color); /* CSS variable - should NOT be detected */
+}
+
+.header {
+  background: hsl(200, 100%, 50%); /* Hard-coded hsl - should be detected */
+  color: white; /* Named color - should be detected */
+}
+
+.footer {
+  color: var(--text-color); /* CSS variable - should NOT be detected */
+  background: $brand-color; /* SCSS variable - should NOT be detected */
+}
