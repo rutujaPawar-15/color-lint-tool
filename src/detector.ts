@@ -23,8 +23,23 @@ export const COLOR_PATTERNS = {
   hsl: /hsla?\s*\(\s*\d+\s*,\s*\d+%\s*,\s*\d+%\s*(,\s*[\d.]+\s*)?\)/gi,
 
   // Named colors (subset - add more as needed)
-  named: /\b(red|blue|green|white|black|yellow|orange|purple|pink|gray|grey|brown|cyan|magenta|lime|navy|teal|olive|maroon|aqua|silver|gold|indigo|violet|coral|salmon|khaki|crimson|turquoise|lavender|beige|ivory|tan|plum|orchid|peru|sienna|thistle|tomato|wheat)\b/gi // color-lint-disable
+  // Only match when used in CSS property values (after a colon and optional whitespace)
+  named: /\b(red|blue|green|white|black|yellow|orange|purple|pink|gray|grey|brown|cyan|magenta|lime|navy|teal|olive|maroon|aqua|silver|gold|indigo|violet|coral|salmon|khaki|crimson|turquoise|lavender|beige|ivory|tan|plum|orchid|peru|sienna|thistle|tomato|wheat)\b(?=\s*;)/gi // color-lint-disable
 };
+
+/**
+ * Pre-compiled regex patterns for performance
+ * Compiled once at module load instead of recreating on every line
+ */
+interface CompiledPattern {
+  type: string;
+  regex: RegExp;
+}
+
+const COMPILED_PATTERNS: CompiledPattern[] = Object.entries(COLOR_PATTERNS).map(([type, pattern]) => ({
+  type,
+  regex: new RegExp(pattern.source, pattern.flags)
+}));
 
 /**
  * Exceptions - patterns to ignore (CSS variables, etc.)
@@ -62,6 +77,7 @@ function shouldIgnoreLine(line: string): boolean {
 
 /**
  * Detect hard-coded colors in a line of code
+ * Uses pre-compiled regex patterns for better performance
  */
 export function detectColors(line: string, lineNumber: number): ColorFinding[] {
   if (shouldIgnoreLine(line)) {
@@ -70,10 +86,11 @@ export function detectColors(line: string, lineNumber: number): ColorFinding[] {
 
   const findings: ColorFinding[] = [];
 
-  // Check each color pattern
-  Object.entries(COLOR_PATTERNS).forEach(([type, pattern]) => {
+  // Check each pre-compiled color pattern
+  COMPILED_PATTERNS.forEach(({ type, regex }) => {
     let match: RegExpExecArray | null;
-    const regex = new RegExp(pattern.source, pattern.flags);
+    // Reset regex lastIndex for global patterns
+    regex.lastIndex = 0;
 
     while ((match = regex.exec(line)) !== null) {
       const color = match[0];

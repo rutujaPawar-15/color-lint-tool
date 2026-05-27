@@ -12,7 +12,7 @@ type CliArgs = ScanArgs & { help?: boolean };
 // Parse command line arguments using minimist generics
 const args = minimist<CliArgs>(process.argv.slice(2), {
   string: ['path', 'ext'],
-  boolean: ['help', 'git-diff'],
+  boolean: ['help', 'git-diff', 'git-staged'],
   alias: {
     h: 'help',
     p: 'path',
@@ -35,7 +35,8 @@ ${chalk.yellow('Usage:')}
 ${chalk.yellow('Options:')}
   -p, --path <path>       Path to scan (default: current directory)
   -e, --ext <extensions>  File extensions to scan (default: .css,.scss,.jsx,etc)
-  --git-diff              Only scan files changed in current branch
+  --git-diff              Only scan files changed in current branch vs main/master
+  --git-staged            Only scan staged files (files added to git index)
   -h, --help              Show this help message
 
 ${chalk.yellow('Examples:')}
@@ -43,24 +44,26 @@ ${chalk.yellow('Examples:')}
   color-lint --path ./src              # Scan specific directory
   color-lint --ext .css,.scss          # Scan only CSS/SCSS files
   color-lint --git-diff                # Scan only changed files in PR
+  color-lint --git-staged              # Scan only staged files before commit
   `);
   process.exit(0);
 }
 
 // Main execution
 async function main(): Promise<void> {
-  // console.log(chalk.bold.blue('\n🎨 Color Lint Tool - Scanning for hard-coded colors...\n'));
-
   try {
     // Get files to scan
     const filesToScan = await scanner.getFiles(args);
 
     if (filesToScan.length === 0) {
-      // console.log(chalk.yellow('No files found to scan.'));
+      console.log(chalk.yellow('No files found to scan.'));
       process.exit(0);
     }
 
-    // console.log(chalk.gray(`Scanning ${filesToScan.length} files...\n`));
+    // Show progress for large scans
+    if (filesToScan.length > 10) {
+      console.log(chalk.gray(`🔍 Scanning ${filesToScan.length} files...\n`));
+    }
 
     // Scan files for hard-coded colors
     const results = await scanner.scanFiles(filesToScan);
@@ -72,12 +75,12 @@ async function main(): Promise<void> {
     if (results.totalIssues > 0) {
       process.exit(1);
     } else {
-      // console.log(chalk.green('\n✓ No hard-coded colors found!'));
+      console.log(chalk.green('\n✓ No hard-coded colors found!'));
       process.exit(0);
     }
 
   } catch (error: any) {
-    // console.error(chalk.red('\n✗ Error:'), error.message);
+    console.error(chalk.red('\n✗ Error:'), error.message);
     process.exit(1);
   }
 }

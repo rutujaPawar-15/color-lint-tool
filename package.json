@@ -9,7 +9,9 @@
   "scripts": {
     "lint": "tsx src/index.ts",
     "lint:help": "tsx src/index.ts --help",
-    "test": "tsx src/index.ts ./test/fixtures"
+    "test": "tsx src/index.ts ./test/fixtures --ext .css,.scss",
+    "test:unit": "node --test --require tsx test/**/*.test.ts",
+    "test:all": "npm run test:unit && npm run test"
   },
   "keywords": [
     "lint",

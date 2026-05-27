@@ -1,0 +1,21 @@
+/* Invalid CSS file with hard-coded colors */
+
+.button {
+  background-color: #ff0000; /* Hard-coded hex */
+  color: rgb(255, 255, 255); /* Hard-coded rgb */
+}
+
+.header {
+  background: hsl(200, 100%, 50%); /* Hard-coded hsl */
+  color: white; /* Named color */
+}
+
+.footer {
+  border: 1px solid #333; /* Hard-coded hex */
+  background: rgba(0, 0, 0, 0.5); /* Hard-coded rgba */
+}
+
+.sidebar {
+  color: blue;
+  background: #f0f0f0;
+}

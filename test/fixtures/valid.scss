@@ -1,0 +1,34 @@
+/* Valid SCSS file with no hard-coded colors */
+
+.button {
+  background-color: var(--primary-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.header {
+  background: $brand-primary;
+  color: $text-white;
+}
+
+.footer {
+  color: @text-color;
+  background: @bg-dark;
+}
+
+.container {
+  background: transparent;
+  color: currentColor;
+  border-color: inherit;
+}
+
+/* These should all be ignored - they're using variables */
+$primary-color: #ff0000;
+@secondary-color: #00ff00;
+--accent-color: #0000ff;
+
+.example {
+  /* This is a comment with #ff0000 - should be ignored */
+  // Another comment with rgb(255, 0, 0)
+  padding: 10px;
+}
