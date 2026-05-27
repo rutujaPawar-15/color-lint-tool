@@ -2,14 +2,14 @@
   "name": "color-lint-tool",
   "version": "0.1.0",
   "description": "CLI tool to detect hard-coded colors in RIB 4.0 codebase",
-  "main": "src/index.js",
+  "main": "src/index.ts",
   "bin": {
-    "color-lint": "./src/index.js"
+    "color-lint": "tsx ./src/index.ts"
   },
   "scripts": {
-    "lint": "node src/index.js",
-    "lint:help": "node src/index.js --help",
-    "test": "node src/index.js ./test/fixtures"
+    "lint": "tsx src/index.ts",
+    "lint:help": "tsx src/index.ts --help",
+    "test": "tsx src/index.ts ./test/fixtures"
   },
   "keywords": [
     "lint",
@@ -26,5 +26,11 @@
   },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^25.8.0",
+    "tsx": "^4.22.1",
+    "typescript": "^6.0.3"
   }
 }
