@@ -1,25 +1,23 @@
 {
   "compilerOptions": {
-    /* Modern Node.js Engine Settings */
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "ignoreDeprecations": "6.0",
+    "types": ["node"],
 
-    /* File Layout */
+    /* File Layout — src/ compiles into dist/src/ */
     "rootDir": "./src",
-    "outDir": "./dist",
+    "outDir": "./dist/src",
 
     /* Interop & Safety */
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    
-    /* Turn this off so our 'export' works beautifully in NodeNext */
-    "verbatimModuleSyntax": false,
     "sourceMap": true,
     "declaration": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "bin"]
+  "exclude": ["node_modules", "dist", "tests", "bin"]
 }

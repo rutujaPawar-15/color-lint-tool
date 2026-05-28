@@ -1,13 +1,16 @@
 {
   "name": "color-lint-tool",
   "version": "1.0.0",
-  "description": "",
-  "main": "dist/index.js",
+  "description": "A CLI tool to detect hard-coded CSS color violations",
+  "main": "dist/src/cli.js",
   "bin": {
-    "color-lint-check": "./bin/index.js"
+    "color-lint-check": "./bin/color-lint-check.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "dev": "ts-node src/cli.ts",
+    "lint": "tsc --noEmit",
+    "test": "echo \"No tests yet\" && exit 0"
   },
   "repository": {
     "type": "git",
@@ -22,13 +25,15 @@
   },
   "homepage": "https://github.com/rutujaPawar-15/color-lint-tool#readme",
   "devDependencies": {
-    "@types/node": "^25.7.0",
+    "@types/node": "^25.9.1",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   },
   "dependencies": {
     "chalk": "^4.1.2",
     "commander": "^14.0.3",
-    "fast-glob": "^3.3.3"
+    "fast-glob": "^3.3.3",
+    "postcss": "^8.5.15",
+    "postcss-scss": "^4.0.9"
   }
 }

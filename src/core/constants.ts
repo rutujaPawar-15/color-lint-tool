@@ -1,21 +1,30 @@
 // src/core/constants.ts
 
-export const DEFAULT_CONFIG = {
-  // 1. File Extensions to Scan
-  // This tells our universal tool which files are allowed to contain styles.
-  extensions: ['.css', '.scss', '.sass', '.less', '.html', '.ts'],
-  
-  // 2. Folders to Ignore
-  // Scanning node_modules or build folders would crash our tool or slow it down.
+export const SCAN_CONFIG = {
+  //File Extensions to Scan (This tells our universal tool which files are allowed to scan.)
+  extensions: ['.css', '.scss', '.html', '.ts', '.js'],
+
+  // File extensions that have proper CSS/SCSS AST and are parsed with PostCSS for accuracy
+  cssLikeExtensions: ['.css', '.scss', '.less'],
+
+  // Folders to Ignore (Scanning node_modules or build folders would crash our tool or slow it down.)
   exclude: ['node_modules', 'dist', '.git', 'vendor', 'out', 'bin'],
+
+  // Files where colors are DEFINED (They shouldn't be flagged as ERRORS.)
+  sourceOfTruth: ['_variables.scss', '_variables-new.scss'],
   
-  // 3. The "Eyes" of the Scanner: Regular Expressions (Regex)
-  // These patterns detect hard-coded colors.
-  patterns: {
-    // Matches Hex colors: e.g., #FFF, #333, #ff0000, #FAFAFA
-    hex: /#([A-Fa-f0-9]{3,6})\b/g,
+  // The "Eyes" of the Scanner: Regular Expressions (These patterns detect hard-coded colors.)
+patterns: {
+    // Captures 3, 4, 6, and 8-digit hex 
+    hex: /#([A-Fa-f0-9]{3,4}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})\b/g,
     
-    // Matches RGB/RGBA colors: e.g., rgb(255, 0, 0) or rgba(0, 0, 0, 0.5)
-    rgb: /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d?(?:\.\d+)?))?\)/g
+    // Captures rgb/rgba with commas or modern slashes
+    rgb: /rgba?\((\s*\d+%?\s*[,/]?\s*){2,3}\s*\d+%?(\s*[/,]\s*[\d.]+%?)?\s*\)/gi,
+    
+    // Captures hsl/hsla for the theming palettes
+    hsl: /hsla?\((\s*\d+\s*(deg|rad|grad|turn)?\s*[,/]?\s*(\s*\d+%\s*[,/]?\s*){1,2}\s*([\d.]+%?)?\s*)\)/gi,
+    
+    // Captures specific named color debt
+    named: /\b(white|black|transparent|currentColor|gr[ae]y|red|blue|teal|green|yellow|orange)\b/g
   }
 };
