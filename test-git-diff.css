@@ -1,0 +1,12 @@
+/* Test file to verify git-diff functionality */
+
+.test-button {
+  background-color: #ff0000; /* This should be detected */
+  color: white;
+  border: 1px solid #333;
+}
+
+.test-header {
+  background: rgb(100, 200, 255);
+  color: blue;
+}
