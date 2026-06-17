@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { scanFile } from './core/scanner';
 import { reportViolations } from './utils/reporter';
-import { findFiles } from './utils/file-finder';
+import { findFiles, getChangedFiles } from './utils/file-finder';
 import { ColorViolation } from './core/types';
 
 const program = new Command();
@@ -11,17 +11,29 @@ const program = new Command();
 program
   .name('color-lint-check')
   .description('Universal Color Auditor: Scans for hardcoded color values.')
-  .action(async () => {
+  .option('-c, --changed', 'Only scan files changed in the working tree (staged, unstaged, and untracked)', false)
+  .action(async (options) => {
     const targetDir = process.cwd();
+    const changedOnly: boolean = !!options.changed;
 
-    console.log(chalk.bgBlue.white.bold(`\n 🔍 Color Auditor: Scanning ${targetDir} \n`));
+    console.log(chalk.bgBlue.white.bold(
+      changedOnly
+        ? `\n 🔍 Color Auditor: Scanning changed files in ${targetDir} \n`
+        : `\n 🔍 Color Auditor: Scanning ${targetDir} \n`
+    ));
 
     try {
-      // 1. Find all files to scan
-      const files = await findFiles(targetDir);
+      // 1. Find files to scan (either all matching files, or only those changed in git)
+      const files = changedOnly
+        ? await getChangedFiles(targetDir)
+        : await findFiles(targetDir);
 
       if (files.length === 0) {
-        console.log(chalk.yellow('No matching files found in current directory.'));
+        console.log(chalk.yellow(
+          changedOnly
+            ? 'No changed files to scan.'
+            : 'No matching files found in current directory.'
+        ));
         return;
       }
 
