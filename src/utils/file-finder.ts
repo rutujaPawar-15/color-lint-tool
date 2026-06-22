@@ -27,10 +27,12 @@ export async function findFiles(targetDir: string): Promise<string[]> {
 export async function getChangedFiles(targetDir: string): Promise<string[]> {
   // Each command returns paths relative to the current working directory, one per line.
   // --diff-filter=d excludes deletions so we never try to scan a file that no longer exists.
+  // --relative ensures paths are relative to cwd (targetDir), not the repo root,
+  // so the tool works correctly from any subdirectory inside the repo.
   const gitCommands = [
-    'git diff --name-only --diff-filter=d',           // unstaged modifications
-    'git diff --name-only --cached --diff-filter=d',  // staged modifications
-    'git ls-files --others --exclude-standard',       // untracked (new) files
+    'git diff --name-only --diff-filter=d --relative',           // unstaged modifications
+    'git diff --name-only --cached --diff-filter=d --relative',  // staged modifications
+    'git ls-files --others --exclude-standard',                  // untracked (new) files — already cwd-relative
   ];
 
   const changed = new Set<string>();
