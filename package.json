@@ -4,7 +4,7 @@
   "description": "A CLI tool to detect hard-coded CSS color violations",
   "main": "dist/src/cli.js",
   "bin": {
-    "color-lint-check": "./bin/color-lint-check.js"
+    "color-lint": "./bin/color-lint-check.js"
   },
   "scripts": {
     "build": "tsc",

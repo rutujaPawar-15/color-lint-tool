@@ -1,7 +1,7 @@
-// --- RIB Color Auditor Test File ---
+// --- Color Lint Test File ---
 
 // 1. Safe: Variables should be IGNORED by the scanner
-$primary-blue: #0052cc; 
+$primary-blue: #0052cc;
 $surface-white: #ffffff;
 
 // 2. Safe: Colors in comments should be IGNORED (AST magic)
@@ -10,13 +10,13 @@ $surface-white: #ffffff;
 
 .test-component {
   // 3. Violation: Hard-coded Hex
-  color: #ff5630; 
-  
+  color: #ff5630;
+
   // 4. Violation: Hard-coded RGB
-  background-color: rgb(255, 255, 255); 
-  
+  background-color: rgb(255, 255, 255);
+
   // 5. Violation: Hard-coded HSL
-  border-color: hsl(210, 100%, 50%); 
+  border-color: hsl(210, 100%, 50%);
 
   // 6. Safe: Using a variable (should not be flagged)
   box-shadow: 0 4px 8px $primary-blue;
@@ -28,5 +28,5 @@ $surface-white: #ffffff;
 
   //.color-box {
   //  background-color: #fff333
-//}
+  //}
 }

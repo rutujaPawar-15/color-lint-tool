@@ -1,113 +1,75 @@
-# Universal Color Lint Tool (POC)
+# ColorLint: Detect, Replace, Standardize
 
-A project-agnostic Command Line Interface (CLI) tool designed to scan a codebase, identify hard-coded CSS color values (Hex, RGB, RGBA), and report them as design system violations.
+Detect hardcoded colors, replace them with design tokens, and standardize your codebase.
 
----
+## Why You Need It
 
-## 🎯 Purpose
+Hard-coded colors scattered across your codebase make design system compliance impossible to track and turn every rebrand into a manual, error-prone effort. This tool automates detection so violations are caught before they ship.
 
-In software development—especially within large enterprise systems like construction domain applications—maintaining a strict design system is vital.
+## What Does This Tool Do
 
-When developers hard-code values like `#FFFFFF` or `rgb(0,0,0)` directly into `.scss`, `.html`, or `.ts` files, it creates **technical debt**. If the brand colors change, finding and replacing these values across thousands of files is prone to errors.
+ColorLint scans your project files (`.css`, `.scss`, `.html`, `.ts`, `.js`) for hard-coded color values — hex, RGB, HSL, and named colors — and reports each one as a violation.
 
-This tool automates the detection of those violations, acting as a quality gate to keep code clean and maintainable.
+## Prerequisites
 
----
+| Tool | Version | Check |
+|------|---------|-------|
+| Node.js | 16+ | `node --version` |
+| npm | 7+ | `npm --version` |
 
-## 🛠️ Installation
-
-### Prerequisites
-
-| Requirement | Notes |
-|---|---|
-| **Node.js** | v16 or higher |
-| **npm** | v7 or higher |
-| **Git** | Required for the `--changed` flag |
-
----
-
-### Step 1 — Clone the repository
+## Installation
 
 ```bash
 git clone https://github.com/rutujaPawar-15/color-lint-tool.git
 cd color-lint-tool
-```
 
-### Step 2 — Install dependencies
-
-```bash
+# Install all packages required to build and run the tool
 npm install
-```
 
-### Step 3 — Type-check the source (optional but recommended)
-
-```bash
+# Verify there are no TypeScript errors in the source code
 npm run lint
-```
 
-> Runs `tsc --noEmit` — confirms there are no TypeScript errors before building.
-
-### Step 4 — Build the project
-
-```bash
+# Compile TypeScript from src/ into JavaScript in dist/
 npm run build
+
+# Register the color-lint command globally so you can run it from any directory
+npm link
 ```
 
-> Compiles the TypeScript source from `src/` into `dist/`. This must be done before the tool can be used globally.
+## Quick Start
 
-### Step 5 — Install globally on your machine
+Navigate to any project you want to check and run:
 
 ```bash
-npm install -g .
+# Scan all supported files in the current directory for hard-coded color violations
+color-lint
+
+# Scan only files that are staged, unstaged, or untracked in your working tree and in the current directory
+color-lint --changed
+
+# Shorthand for --changed
+color-lint -c
+
+# Show all available options
+color-lint --help
 ```
 
-> This registers the `color-lint-check` command so you can run it from **any project directory**.
+> **Note:** `--changed` requires Git to be installed and the directory to be a Git repository.
+
+## What Gets Ignored
+
+The tool does not flag the following as violations:
+
+- Colors inside comments (`//`, `/* */`, `<!-- -->`)
+- Colors defined in `_variables.scss` or `_variables-new.scss` — these are your design token source of truth
+- Colors referenced via variables (e.g. `$primary-blue`, `var(--color-white)`)
+- Files and folders such as `node_modules/`, `dist/`, `.git/`, `vendor/`, `out/`, `bin/`
 
 ---
 
-## 🚀 Usage
+You are all set. You are now ready to:
 
-Once installed, navigate to the project you want to audit and run:
-
-### Scan the entire project
-
-```bash
-color-lint-check
-```
-
-Scans all `.css`, `.scss`, `.html`, `.ts`, and `.js` files in the current directory for hard-coded color violations.
-
-### Scan only changed / modified files
-
-```bash
-color-lint-check --changed
-```
-
-or the shorthand:
-
-```bash
-color-lint-check -c
-```
-
-Only scans files that are **staged, unstaged, or untracked** in your git working tree — ideal for catching violations in just the files you are actively working on.
-
-### View all available options
-
-```bash
-color-lint-check --help
-```
-
----
-
-## 📋 All Commands at a Glance
-
-| Command | Description |
-|---|---|
-| `npm install` | Install all dependencies |
-| `npm run lint` | Type-check source with TypeScript (no output files) |
-| `npm run build` | Compile TypeScript source into `dist/` |
-| `npm install -g .` | Register `color-lint-check` globally |
-| `color-lint-check` | Scan the entire project for color violations |
-| `color-lint-check --changed` | Scan only your changed / modified files |
-| `color-lint-check -c` | Shorthand for `--changed` |
-| `color-lint-check --help` | Show help and all available options |
+- Scan your codebase for hard-coded colors
+- Enforce design system compliance
+- Catch violations before they ship
+- Keep your code clean and maintainable

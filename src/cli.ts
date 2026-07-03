@@ -9,17 +9,20 @@ import { ColorViolation } from './core/types';
 const program = new Command();
 
 program
-  .name('color-lint-check')
-  .description('Universal Color Auditor: Scans for hardcoded color values.')
-  .option('-c, --changed', 'Only scan files changed in the working tree (staged, unstaged, and untracked)', false)
+  .name('color-lint')
+  .description('Detect hardcoded colors, replace them with design tokens, and standardize your codebase.')
+  .option('-c, --changed', 'Scan only changed files in the current directory and working tree (staged, unstaged, and untracked). Requires git to be installed and this directory to be a git repository.', false)
   .action(async (options) => {
     const targetDir = process.cwd();
     const changedOnly: boolean = !!options.changed;
 
     console.log(chalk.bgBlue.white.bold(
+      `\n 🔍 Starting ColorLint Tool...\n`
+    ));
+    console.log(chalk.cyan(
       changedOnly
-        ? `\n 🔍 Color Auditor: Scanning changed files in ${targetDir} \n`
-        : `\n 🔍 Color Auditor: Scanning ${targetDir} \n`
+        ? `Scanning changed files in ${targetDir}\n`
+        : `Scanning ${targetDir}\n`
     ));
 
     try {
@@ -32,31 +35,30 @@ program
         console.log(chalk.yellow(
           changedOnly
             ? 'No changed files to scan.'
-            : 'No matching files found in current directory.'
+            : 'No matching files found in the current directory.'
         ));
         return;
       }
 
-      // 2. Scan every file and collect all violations
-      const allViolations: ColorViolation[] = [];
-      for (const file of files) {
-        const violations = await scanFile(file);
-        allViolations.push(...violations);
-      }
+      // 2. Scan every file concurrently and collect all violations
+      const results = await Promise.all(files.map(scanFile));
+      const allViolations: ColorViolation[] = results.flat();
 
       // 3. Print the report
       reportViolations(allViolations, targetDir);
 
       // 4. Summary + exit code
       if (allViolations.length === 0) {
-        console.log(chalk.green(`\n✔ Scan complete. No violations found across ${files.length} file(s).\n`));
+        console.log(chalk.green(`\n✅ Scan complete! No violations found across ${files.length} file(s).\n`));
       } else {
-        console.log(chalk.red(`\n✖ Found ${allViolations.length} violation(s) across ${files.length} file(s).\n`));
+        console.log(chalk.red(`\n❌ Found ${allViolations.length} violation(s) across ${files.length} file(s).\n`));
+        //console.log(chalk.dim('Run with --help to see all available options.\n'));
         process.exit(1);
       }
 
     } catch (error: any) {
-      console.error(chalk.red('Fatal Error:'), error.message);
+      console.error(chalk.gray('\nSomething went wrong during the scan. Please try again or check your setup.'));
+      console.error(chalk.red('\nFatal Error:'), error.message);
       process.exit(1);
     }
   });

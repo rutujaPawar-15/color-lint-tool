@@ -6,7 +6,7 @@ import { ColorViolation } from '../core/types';
 export function reportViolations(violations: ColorViolation[], targetDir: string): void {
   if (violations.length === 0) return;
 
-// Groups violations by file so the output is easy to scan.
+  // Groups violations by file so the output is easy to scan.
   const byFile = new Map<string, ColorViolation[]>();
   for (const v of violations) {
     if (!byFile.has(v.file)) byFile.set(v.file, []);
@@ -17,7 +17,7 @@ export function reportViolations(violations: ColorViolation[], targetDir: string
   for (const [file, fileViolations] of byFile) {
     const relativePath = path.relative(targetDir, file);
 
-    console.log(chalk.underline.cyan(`\n📄 ${relativePath}`));
+    console.log(chalk.underline.blueBright(`\n📄 ${relativePath}`) + chalk.gray(` (${fileViolations.length} violation${fileViolations.length > 1 ? 's' : ''})`));
 
     for (const v of fileViolations) {
       console.log(
