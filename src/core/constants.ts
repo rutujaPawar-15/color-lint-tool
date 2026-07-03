@@ -28,3 +28,11 @@ patterns: {
     named: /\b(white|black|transparent|currentColor|gr[ae]y|red|blue|teal|green|yellow|orange)\b/g
   }
 };
+
+// Git commands used by getChangedFiles() to discover modified/staged/untracked files.
+// --diff-filter=d excludes deletions; --relative keeps paths relative to cwd, not repo root.
+export const GIT_CHANGED_FILES_COMMANDS = [
+  'git diff --name-only --diff-filter=d --relative',           // unstaged modifications
+  'git diff --name-only --cached --diff-filter=d --relative',  // staged modifications
+  'git ls-files --others --exclude-standard',                  // untracked (new) files — already cwd-relative
+];

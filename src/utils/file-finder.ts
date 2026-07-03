@@ -2,7 +2,7 @@ import fg from 'fast-glob';
 import path from 'node:path';
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
-import { SCAN_CONFIG } from '../core/constants';
+import { SCAN_CONFIG, GIT_CHANGED_FILES_COMMANDS } from '../core/constants';
 
 // Finds all files in targetDir that match the configured extensions, excluding ignored folders and source-of-truth variable files.
 export async function findFiles(targetDir: string): Promise<string[]> {
@@ -26,18 +26,9 @@ export async function findFiles(targetDir: string): Promise<string[]> {
 // filtered by the same extension / exclude / source-of-truth rules as findFiles.
 export async function getChangedFiles(targetDir: string): Promise<string[]> {
   // Each command returns paths relative to the current working directory, one per line.
-  // --diff-filter=d excludes deletions so we never try to scan a file that no longer exists.
-  // --relative ensures paths are relative to cwd (targetDir), not the repo root,
-  // so the tool works correctly from any subdirectory inside the repo.
-  const gitCommands = [
-    'git diff --name-only --diff-filter=d --relative',           // unstaged modifications
-    'git diff --name-only --cached --diff-filter=d --relative',  // staged modifications
-    'git ls-files --others --exclude-standard',                  // untracked (new) files — already cwd-relative
-  ];
-
   const changed = new Set<string>();
   try {
-    for (const cmd of gitCommands) {
+    for (const cmd of GIT_CHANGED_FILES_COMMANDS) {
       const out = execSync(cmd, { cwd: targetDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
       for (const line of out.split(/\r?\n/)) {
         const trimmed = line.trim();
@@ -46,7 +37,7 @@ export async function getChangedFiles(targetDir: string): Promise<string[]> {
     }
   } catch (err: any) {
     throw new Error(
-      `Could not read changed files via git. Make sure "${targetDir}" is inside a git repository and git is installed.\n${err.stderr?.toString?.() || err.message || err}`
+      `Could not access git repository. Ensure git is installed and this directory is a git repository.\n${err.stderr?.toString?.() || err.message || err}`
     );
   }
 

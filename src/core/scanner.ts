@@ -1,5 +1,6 @@
 import postcss from 'postcss';
 import scssPostcss from 'postcss-scss';
+import chalk from 'chalk';
 import { SCAN_CONFIG } from './constants';
 import { ColorViolation } from './types';
 import * as fs from 'node:fs/promises';
@@ -186,7 +187,8 @@ export async function scanFile(filePath: string): Promise<ColorViolation[]> {
     }
     return await scanTextFile(filePath);
   } catch (error: any) {
-    console.error(`[Scanner Error] Failed to scan ${filePath}: ${error.message}`);
+    console.error(chalk.red(`Scanner Error: Failed to scan ${filePath}`));
+    console.error(chalk.dim(`Details: ${error.message}`));
     return [];
   }
 }

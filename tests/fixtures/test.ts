@@ -12,6 +12,7 @@ class test{
      * 
      */
     public bordercolor= #8da210;
+    public boxcolor= #9da378;
 }
 
 
