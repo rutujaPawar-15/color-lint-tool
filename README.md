@@ -52,6 +52,9 @@ color-lint -c
 
 # Show all available options
 color-lint --help
+
+# Shorthand for --help
+color-lint -h
 ```
 
 > **Note:** `--changed` requires Git to be installed and the directory to be a Git repository.
@@ -67,9 +70,5 @@ The tool does not flag the following as violations:
 
 ---
 
-You are all set. You are now ready to:
+You are all set! Start scanning, catch violations early, and keep your codebase consistent.
 
-- Scan your codebase for hard-coded colors
-- Enforce design system compliance
-- Catch violations before they ship
-- Keep your code clean and maintainable
