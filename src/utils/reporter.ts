@@ -3,7 +3,7 @@ import path from 'node:path';
 import { ColorViolation } from '../core/types';
 
 // Prints all violations to the terminal in a human-readable format.
-export function reportViolations(violations: ColorViolation[], targetDir: string): void {
+export function reportViolations(violations: ColorViolation[], targetDir: string, showSuggestions: boolean = false): void {
   if (violations.length === 0) return;
 
   // Groups violations by file so the output is easy to scan.
@@ -20,13 +20,15 @@ export function reportViolations(violations: ColorViolation[], targetDir: string
     console.log(chalk.underline.blueBright(`\n📄 ${relativePath}`) + chalk.gray(` (${fileViolations.length} violation${fileViolations.length > 1 ? 's' : ''})`));
 
     for (const v of fileViolations) {
+      const suggestionText = (showSuggestions && v.suggestion) ? chalk.green(` → use ${v.suggestion}`) : '';
       console.log(
         chalk.yellow('  ⚠  ') +
         chalk.white(`Line ${v.line}, Col ${v.column}`) +
         chalk.gray('  |  ') +
         chalk.magenta(v.property) +
         chalk.gray(': ') +
-        chalk.red.bold(v.value)
+        chalk.red.bold(v.value) +
+        suggestionText
       );
     }
   }

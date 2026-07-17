@@ -4,4 +4,5 @@ export interface ColorViolation {
   column: number;    // Column for precision
   value: string;     // The hardcoded color (e.g., #ff0000)
   property: string;  // The CSS property (e.g., "border-color")
+  suggestion?: string; // Suggested CSS variable replacement
 }

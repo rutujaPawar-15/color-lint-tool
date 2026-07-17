@@ -1,0 +1,9 @@
+.card {
+  background-color: #fff;
+  color: #0000;
+  border-color: #007bff;
+}
+.alert {
+  color: #ff0000;
+  background-color: #fff; /* Not in variables exactly, unless we normalize hex length */
+}
