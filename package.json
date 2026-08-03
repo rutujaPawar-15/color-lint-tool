@@ -10,7 +10,7 @@
     "build": "tsc",
     "dev": "ts-node src/cli.ts",
     "lint": "tsc --noEmit",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "vitest run"
   },
   "repository": {
     "type": "git",
@@ -27,7 +27,8 @@
   "devDependencies": {
     "@types/node": "^25.9.1",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "chalk": "^4.1.2",

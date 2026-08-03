@@ -1,11 +1,22 @@
 // src/core/constants.ts
 
-export const SCAN_CONFIG = {
-  //File Extensions to Scan (This tells our universal tool which files are allowed to scan.)
-  extensions: ['.css', '.scss', '.html', '.ts', '.js'],
+// Single source of truth for all scannable file extensions and their properties.
+// This prevents the kind of sync mismatch that caused the .less bug.
+const EXTENSION_CONFIG = [
+  { ext: '.css', cssLike: true },
+  { ext: '.scss', cssLike: true },
+  { ext: '.less', cssLike: true },
+  { ext: '.html', cssLike: false },
+  { ext: '.ts', cssLike: false },
+  { ext: '.js', cssLike: false },
+];
 
-  // File extensions that have proper CSS/SCSS AST and are parsed with PostCSS for accuracy
-  cssLikeExtensions: ['.css', '.scss', '.less'],
+export const SCAN_CONFIG = {
+  // All scannable extensions, derived from a single config.
+  extensions: EXTENSION_CONFIG.map(c => c.ext),
+
+  // Extensions that use PostCSS AST parsing (CSS, SCSS, Less), derived from config.
+  cssLikeExtensions: EXTENSION_CONFIG.filter(c => c.cssLike).map(c => c.ext),
 
   // Folders to Ignore (Scanning node_modules or build folders would crash our tool or slow it down.)
   exclude: ['node_modules', 'dist', '.git', 'vendor', 'out', 'bin'],
@@ -24,8 +35,8 @@ patterns: {
     // Captures hsl/hsla for the theming palettes
     hsl: /hsla?\((\s*\d+\s*(deg|rad|grad|turn)?\s*[,/]?\s*(\s*\d+%\s*[,/]?\s*){1,2}\s*([\d.]+%?)?\s*)\)/gi,
     
-    // Captures specific named color debt
-    named: /\b(white|black|transparent|currentColor|gr[ae]y|red|blue|teal|green|yellow|orange)\b/g
+    // Captures specific named color debt (case-insensitive: WHITE, Red, etc. all count)
+    named: /\b(white|black|transparent|currentColor|gr[ae]y|red|blue|teal|green|yellow|orange)\b/gi
   }
 };
 

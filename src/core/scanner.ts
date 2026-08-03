@@ -131,7 +131,10 @@ function maskCode(content: string, i: number, state: MaskState, out: string[]): 
 // Blanks out comment content (// line, /* block */, and <!-- html --> styles) by
 // replacing comment characters with spaces. Character positions, newlines and
 // overall length are preserved so downstream line/column reporting stays accurate.
-function maskComments(content: string): string {
+// Also returns a per-character map of which positions fall inside a string literal
+// (quoted attribute values count too, e.g. style="color: red") — used to keep the
+// "named" color pattern from matching bare identifiers like a variable named `red`.
+function maskComments(content: string): { masked: string; inString: boolean[] } {
   const handlers: Record<MaskMode, (c: string, i: number, s: MaskState, o: string[]) => number> = {
     code: maskCode,
     line: maskLine,
@@ -141,13 +144,31 @@ function maskComments(content: string): string {
   };
 
   const out: string[] = [];
+  const inString: boolean[] = new Array(content.length).fill(false);
   const state: MaskState = { mode: 'code', stringChar: '' };
   let i = 0;
   while (i < content.length) {
-    i = handlers[state.mode](content, i, state, out);
+    const modeBefore = state.mode;
+    const nextI = handlers[state.mode](content, i, state, out);
+    for (let k = i; k < nextI; k++) inString[k] = modeBefore === 'string';
+    i = nextI;
   }
 
-  return out.join('');
+  return { masked: out.join(''), inString };
+}
+
+// Matches a trailing "property:" or "property=" immediately before a color value,
+// e.g. "color: " in style="color: red", "bordercolor= " in a TS field assignment, or
+// "background: '" in an object literal where the value itself is quoted.
+const PROPERTY_CONTEXT_RE = /([a-zA-Z_$][\w-]*)\s*[:=]\s*['"`]?\s*$/;
+
+// Derives a human-readable property label for a text-scanned match by looking at
+// what precedes it on the line. Falls back to 'value' when there's no clear
+// property-like prefix (e.g. a bare color word in the middle of an expression).
+function extractPropertyLabel(line: string, matchIndex: number): string {
+  const before = line.slice(0, matchIndex);
+  const propMatch = PROPERTY_CONTEXT_RE.exec(before);
+  return propMatch ? propMatch[1] : 'value';
 }
 
 // Scans .ts, .js, .html files line-by-line using regex on raw text.
@@ -155,20 +176,35 @@ async function scanTextFile(filePath: string): Promise<ColorViolation[]> {
   const violations: ColorViolation[] = [];
   const content = await fs.readFile(filePath, 'utf-8');
   // Blank out comments first so colors inside them are not flagged as violations.
-  const lines = maskComments(content).split('\n');
+  const { masked, inString } = maskComments(content);
+  const lines = masked.split('\n');
 
+  let lineStart = 0;
   lines.forEach((line, index) => {
+    const lineInString = inString.slice(lineStart, lineStart + line.length);
+    lineStart += line.length + 1; // +1 for the '\n' removed by split
+
     for (const patternKey in SCAN_CONFIG.patterns) {
       const regex = SCAN_CONFIG.patterns[patternKey as keyof typeof SCAN_CONFIG.patterns];
       regex.lastIndex = 0;
 
       let match;
       while ((match = regex.exec(line)) !== null) {
+        // Named colors (red, blue, ...) are common English/identifier words, so only
+        // count them as violations when they appear inside a string/attribute value —
+        // e.g. style="color: red" — not as a bare identifier like `let red = 5`.
+        if (patternKey === 'named') {
+          const withinString = lineInString
+            .slice(match.index, match.index + match[0].length)
+            .every(Boolean);
+          if (!withinString) continue;
+        }
+
         violations.push({
           file: filePath,
           line: index + 1,
           column: match.index + 1,
-          property: 'inline-style',
+          property: extractPropertyLabel(line, match.index),
           value: match[0],
         });
       }
