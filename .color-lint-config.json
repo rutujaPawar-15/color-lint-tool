@@ -1,0 +1,12 @@
+{
+  "sourceOfTruth": ["tests/fixtures/test.scss"],
+  "colorMap": {
+    "#135b0f": "$color-success",
+    "#8da210": "$color-primary",
+    "#ff0000": "$color-red",
+    "#00ff00": "$color-green",
+    "red": "$color-red",
+    "blue": "$color-blue"
+  },
+  "defaultBehavior": "strict"
+}

@@ -5,3 +5,8 @@ export interface ColorViolation {
   value: string;     // The hardcoded color (e.g., #ff0000)
   property: string;  // The CSS property (e.g., "border-color")
 }
+
+export interface ScanSuggestion extends ColorViolation {
+  suggestedVariable: string | null;
+  variableMissing: boolean;
+}
