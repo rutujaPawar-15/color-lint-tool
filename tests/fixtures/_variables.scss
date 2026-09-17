@@ -1,0 +1,7 @@
+// Source-of-truth design tokens.
+// This filename is what SCAN_CONFIG.sourceOfTruth matches on — file-finder.ts
+// excludes files with this basename from discovery entirely. scanFile() itself
+// has no knowledge of this rule (see scanner.test.ts), so calling it directly
+// against this file still reports its declarations as violations.
+$primary-blue: #0052cc;
+$surface-white: #ffffff;
