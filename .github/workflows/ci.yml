@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to the major used for development (node -v => v26.x), which also
+      # matches the @types/node major range in package.json.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: npm
+
+      - run: npm ci
+
+      # Same three-command gate as .claude/skills/execute-prd step 7.
+      # Note: `lint` is `tsc --noEmit` and `build` is `tsc` — the same type check
+      # with and without emit, not two independent checks. There is no ESLint here.
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
