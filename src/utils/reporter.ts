@@ -2,6 +2,23 @@ import chalk from 'chalk';
 import path from 'node:path';
 import { ColorViolation } from '../core/types';
 
+// The per-file header line, shared with color-lint-fix so both print the same styling.
+export function formatFileHeader(relativePath: string): string {
+  return chalk.underline.blueBright(`📄 ${relativePath}`);
+}
+
+// One violation line, shared with color-lint-fix so both print it byte-identically.
+export function formatViolationLine(v: ColorViolation): string {
+  return (
+    chalk.yellow('  ⚠  ') +
+    chalk.white(`Line ${v.line}, Col ${v.column}`) +
+    chalk.gray('  |  ') +
+    chalk.magenta(v.property) +
+    chalk.gray(': ') +
+    chalk.red.bold(v.value)
+  );
+}
+
 // Prints all violations to the terminal in a human-readable format.
 export function reportViolations(violations: ColorViolation[], targetDir: string): void {
   if (violations.length === 0) return;
@@ -17,17 +34,10 @@ export function reportViolations(violations: ColorViolation[], targetDir: string
   for (const [file, fileViolations] of byFile) {
     const relativePath = path.relative(targetDir, file);
 
-    console.log(chalk.underline.blueBright(`\n📄 ${relativePath}`) + chalk.gray(` (${fileViolations.length} violation${fileViolations.length > 1 ? 's' : ''})`));
+    console.log('\n' + formatFileHeader(relativePath) + chalk.gray(` (${fileViolations.length} violation${fileViolations.length > 1 ? 's' : ''})`));
 
     for (const v of fileViolations) {
-      console.log(
-        chalk.yellow('  ⚠  ') +
-        chalk.white(`Line ${v.line}, Col ${v.column}`) +
-        chalk.gray('  |  ') +
-        chalk.magenta(v.property) +
-        chalk.gray(': ') +
-        chalk.red.bold(v.value)
-      );
+      console.log(formatViolationLine(v));
 
       // Only the primary (first) suggestion is named; the rest are summarised as a count.
       if (v.suggestions?.length) {

@@ -37,9 +37,23 @@ cli.ts                      commander entry; owns flags (-c/--changed, -t/--toke
   └─ utils/reporter.ts      reportViolations() → grouped, chalk-formatted stdout
 core/constants.ts           SCAN_CONFIG + GIT_CHANGED_FILES_COMMANDS
 core/types.ts               ColorViolation
+
+fix-cli.ts                  second binary `color-lint-fix`; same -t/-c resolution as cli.ts, minus token
+                            files and non-fixable types; stdin line prompt (number / s / q; Ctrl+C = q);
+                            parse all → pick all → write all. Prints via reporter's formatFileHeader /
+                            formatViolationLine so its lines match color-lint's byte for byte
+  └─ core/fixer.ts          parseForFix(file, content) → occurrences with absolute offsets (throws on parse error)
+                            fixFile(parsed, tokens, choose) → new content + replaced/noMatch/skipped/notProcessed;
+                            choose returning STOP ends the file (and the run) keeping earlier edits;
+                            candidates filtered by SCAN_CONFIG.fixableTokenPrefixes (.css → var(--x) only)
+       └─ scanner.ts        findColorsInValue() — the per-declaration match loop, shared with scanCssFile
 ```
 
-Exit code: `1` if any violation found (or on fatal error), `0` otherwise.
+Exit code: `color-lint` → `1` if any violation found (or on fatal error), `0` otherwise.
+`color-lint-fix` → `0` once the run completes (even with violations left, or stopped with `q`), `130` when
+stopped by SIGINT at a prompt (picks so far are still written), `1` only on fatal error (missing
+`--tokens` file, unparseable file) — and then no file is written.
+`color-lint` never writes files; only `color-lint-fix` does.
 
 ## 3. Two comment-ignoring mechanisms — why
 

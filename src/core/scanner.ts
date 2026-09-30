@@ -17,31 +17,47 @@ async function scanCssFile(filePath: string): Promise<ColorViolation[]> {
   });
 
   result.root.walkDecls((decl) => {
-    for (const patternKey in SCAN_CONFIG.patterns) {
-      const regex = SCAN_CONFIG.patterns[patternKey as keyof typeof SCAN_CONFIG.patterns];
-      regex.lastIndex = 0;
-
-      let match;
-      while ((match = regex.exec(decl.value)) !== null) {
-        // Guard against false positives for named colors that appear as part of
-        // a variable reference, e.g. "blue" inside "$primary-blue".
-        // If the character immediately before the match is a word char or hyphen,
-        // it's part of a longer token — skip it.
-        const charBefore = decl.value[match.index - 1];
-        if (charBefore !== undefined && /[-a-zA-Z0-9_$]/.test(charBefore)) continue;
-
-        violations.push({
-          file: filePath,
-          line: decl.source?.start?.line ?? 0,
-          column: decl.source?.start?.column ?? 0,
-          property: decl.prop,
-          value: match[0],
-        });
-      }
+    for (const match of findColorsInValue(decl.value)) {
+      violations.push({
+        file: filePath,
+        line: decl.source?.start?.line ?? 0,
+        column: decl.source?.start?.column ?? 0,
+        property: decl.prop,
+        value: match.text,
+      });
     }
   });
 
   return violations;
+}
+
+// A hard-coded color found inside a declaration value, with its offset in that value.
+export interface ValueMatch {
+  text: string;
+  index: number;
+}
+
+// Finds every hard-coded color in a CSS declaration value, in SCAN_CONFIG.patterns order.
+// Shared by scanCssFile and core/fixer.ts so both detect exactly the same colors.
+export function findColorsInValue(value: string): ValueMatch[] {
+  const matches: ValueMatch[] = [];
+  for (const patternKey in SCAN_CONFIG.patterns) {
+    const regex = SCAN_CONFIG.patterns[patternKey as keyof typeof SCAN_CONFIG.patterns];
+    regex.lastIndex = 0;
+
+    let match;
+    while ((match = regex.exec(value)) !== null) {
+      // Guard against false positives for named colors that appear as part of
+      // a variable reference, e.g. "blue" inside "$primary-blue".
+      // If the character immediately before the match is a word char or hyphen,
+      // it's part of a longer token — skip it.
+      const charBefore = value[match.index - 1];
+      if (charBefore !== undefined && /[-a-zA-Z0-9_$]/.test(charBefore)) continue;
+
+      matches.push({ text: match[0], index: match.index });
+    }
+  }
+  return matches;
 }
 
 // Tracks the masking state machine as it walks through file content.

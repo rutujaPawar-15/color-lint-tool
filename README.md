@@ -32,7 +32,7 @@ npm run lint
 # Compile TypeScript from src/ into JavaScript in dist/
 npm run build
 
-# Register the color-lint command globally so you can run it from any directory
+# Register the color-lint and color-lint-fix commands globally so you can run it from any directory
 npm link
 ```
 
@@ -91,6 +91,59 @@ For every violation, ColorLint also suggests the design token that defines the s
 - If the `--tokens` file does not exist, or a token file cannot be parsed, ColorLint stops with an error and exit code `1`.
 
 Suggestions never change which violations are reported or the exit code.
+
+## Auto-fixing: `color-lint-fix`
+
+`color-lint` only reports; it never writes files. A second command, `color-lint-fix`, rewrites hard-coded colors into their matching design token. It scans the files itself and takes the same flags:
+
+```bash
+# Replace colors in every .scss / .css file in the current directory
+color-lint-fix
+
+# Take tokens from a specific file (shorthand: -t)
+color-lint-fix --tokens path/to/tokens.scss
+
+# Fix only files that are staged, unstaged, or untracked (shorthand: -c)
+color-lint-fix --changed
+```
+
+- **One matching token:** replaced without asking.
+- **Several matching tokens:** you pick one for **each occurrence**. The output uses the same colors and layout as `color-lint`: one `📄` header per file, then a block per occurrence:
+
+  ```
+  📄 src/app.scss
+    ⚠  Line 4, Col 3  |  color: #fff
+       1) $white
+       2) $surface-white
+       Pick a token [1-2, s=skip, q=quit]:
+  ```
+
+  At the prompt:
+  - **a listed number** replaces the color with that token (nothing more is printed);
+  - **`s`** skips this occurrence (`Skipped.`);
+  - **anything else**, including `0`, an out-of-range number or an empty line, also skips it (`Invalid choice, hence skipped.`). You are not asked again;
+  - **`q`** stops the run. Every replacement decided so far is saved, and nothing after that point is processed, including single-match colors. Run `color-lint-fix` again to pick up the rest;
+  - **Ctrl+C** does the same as `q`, but the exit code is `130`.
+
+  `s` and `q` are case-insensitive, and surrounding spaces are ignored. If stdin ends (e.g. in CI), the remaining prompts are skipped. That is not a stop.
+- **Which files are edited:** only `.scss` and `.css`. `.ts`, `.js` and `.html` are never edited; `color-lint` still reports their violations. Token files (`_variables*.scss`, or the `--tokens` file) are never edited either.
+- **Which tokens are used:** `.scss` accepts `$token` and `var(--token)`. `.css` accepts only `var(--token)`, so a color whose only match is a `$token` is left unchanged in `.css`.
+- **Only the color text changes.** Formatting, comments and line endings are preserved. There is no backup or dry run. Review the changes with `git diff` and revert with git.
+- **Tokens must be in scope.** `color-lint-fix` does not add `@use` / `@import`. You need to make sure an inserted `$token` resolves in the edited file.
+- Every run ends with a summary line:
+
+  ```
+  Replaced 3 color(s) in 2 file(s); 1 without a matching token, 1 skipped.
+  ```
+
+  The replaced count is green, the without-a-match count red and the skipped count yellow. After a `q` or Ctrl+C, a yellow line comes directly before the summary, and the summary counts only the occurrences that were processed:
+
+  ```
+  Stopped early: 4 violation(s) not processed.
+  Replaced 1 color(s) in 1 file(s); 1 without a matching token, 1 skipped.
+  ```
+
+  The exit code is `0` even when violations remain, including after `q`. It is `130` when the run was stopped with Ctrl+C at a prompt. It is `1` only on a fatal error: a missing `--tokens` file, or a file that cannot be parsed. In both cases **no** file is modified.
 
 ## What Gets Ignored
 

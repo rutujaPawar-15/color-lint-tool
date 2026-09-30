@@ -9,7 +9,9 @@ export default defineConfig({
       // Scoped to files that currently have real test coverage. Extend this list as
       // each new src file gets a *.test.ts suite. cli.ts stays out: tests/cli.test.ts
       // runs it in a child process, which v8 coverage of this process cannot see.
+      // fix-cli.ts stays out for the same reason (tests/fix-cli.test.ts).
       include: [
+        'src/core/fixer.ts',
         'src/core/scanner.ts',
         'src/core/variables.ts',
         'src/utils/file-finder.ts',

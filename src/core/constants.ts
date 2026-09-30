@@ -10,6 +10,13 @@ export const SCAN_CONFIG = {
   // Folders to Ignore (Scanning node_modules or build folders would crash our tool or slow it down.)
   exclude: ['node_modules', 'dist', '.git', 'vendor', 'out', 'bin'],
 
+  // File types color-lint-fix may edit → token reference prefixes that are valid syntax there.
+  // Extensions not listed here (.ts, .js, .html) are never edited.
+  fixableTokenPrefixes: {
+    '.scss': ['$', 'var(--'],
+    '.css': ['var(--'],
+  } as Record<string, string[]>,
+
   // Files where colors are DEFINED (They shouldn't be flagged as ERRORS.)
   sourceOfTruth: ['_variables.scss', '_variables-new.scss'],
   
