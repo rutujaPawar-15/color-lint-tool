@@ -2,6 +2,9 @@ import chalk from 'chalk';
 import path from 'node:path';
 import { ColorViolation } from '../core/types';
 
+// Prefix for the suggestion line, aligned under the violation.
+const ARROW_PREFIX = '     → ';
+
 // Prints all violations to the terminal in a human-readable format.
 export function reportViolations(violations: ColorViolation[], targetDir: string): void {
   if (violations.length === 0) return;
@@ -28,6 +31,15 @@ export function reportViolations(violations: ColorViolation[], targetDir: string
         chalk.gray(': ') +
         chalk.red.bold(v.value)
       );
+
+      // When one or more tokens match this color, show the first suggestion. If more
+      // tokens also match, summarize the rest as "(+N more)" rather than listing them
+      // all, so output stays readable even when a common color maps to many tokens.
+      if (v.suggestions && v.suggestions.length > 0) {
+        const [first, ...rest] = v.suggestions;
+        const more = rest.length > 0 ? chalk.gray(` (+${rest.length} more)`) : '';
+        console.log(chalk.gray(ARROW_PREFIX) + chalk.green(first) + more);
+      }
     }
   }
 }

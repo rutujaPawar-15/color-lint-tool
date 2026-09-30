@@ -3,7 +3,8 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { scanFile } from './core/scanner';
 import { reportViolations } from './utils/reporter';
-import { findFiles, getChangedFiles } from './utils/file-finder';
+import { findFiles, getChangedFiles, resolveTokenSources } from './utils/file-finder';
+import { TokenMap } from './core/token-map';
 import { ColorViolation } from './core/types';
 
 const program = new Command();
@@ -12,9 +13,11 @@ program
   .name('color-lint')
   .description('Detect hardcoded colors, replace them with design tokens, and standardize your codebase.')
   .option('-c, --changed', 'Scan only changed files in the current directory and working tree (staged, unstaged, and untracked). Requires git to be installed and this directory to be a git repository.', false)
+  .option('-t, --tokens <path>', 'Path or glob to the file(s) that define your color design tokens. Defaults to source-of-truth variable files (e.g. _variables.scss) found in the directory.')
   .action(async (options) => {
     const targetDir = process.cwd();
     const changedOnly: boolean = !!options.changed;
+    const tokensOption: string | undefined = options.tokens;
 
     console.log(chalk.bgBlue.white.bold(
       `\n 🔍 Starting ColorLint Tool...\n`
@@ -44,10 +47,23 @@ program
       const results = await Promise.all(files.map(scanFile));
       const allViolations: ColorViolation[] = results.flat();
 
-      // 3. Print the report
+      // 3. Build the token map and attach a suggested variable to each violation.
+      const tokenFiles = await resolveTokenSources(targetDir, tokensOption);
+      if (tokenFiles.length === 0) {
+        console.log(chalk.yellow(
+          'No design-token source found (looked for _variables.scss / _variables-new.scss). ' +
+          'Pass --tokens <path> to enable variable suggestions.\n'
+        ));
+      }
+      const tokenMap = await TokenMap.build(tokenFiles);
+      for (const v of allViolations) {
+        v.suggestions = tokenMap.getSuggestions(v.value);
+      }
+
+      // 4. Print the report
       reportViolations(allViolations, targetDir);
 
-      // 4. Summary + exit code
+      // 5. Summary + exit code
       if (allViolations.length === 0) {
         console.log(chalk.green(`\n✅ Scan complete! No violations found across ${files.length} file(s).\n`));
       } else {
