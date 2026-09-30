@@ -26,7 +26,30 @@ patterns: {
     
     // Captures specific named color debt
     named: /\b(white|black|transparent|currentColor|gr[ae]y|red|blue|teal|green|yellow|orange)\b/g
-  }
+  },
+
+  // Anchored counterparts of `patterns`: test whether a WHOLE string is one color
+  // (used to validate/normalize token values and violation values in core/variables.ts).
+  valuePatterns: {
+    hex: /^#([A-Fa-f0-9]{3,4}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$/,
+    rgb: /^rgba?\((\s*\d+%?\s*[,/]?\s*){2,3}\s*\d+%?(\s*[/,]\s*[\d.]+%?)?\s*\)$/i,
+    hsl: /^hsla?\((\s*\d+\s*(deg|rad|grad|turn)?\s*[,/]?\s*(\s*\d+%\s*[,/]?\s*){1,2}\s*([\d.]+%?)?\s*)\)$/i,
+  },
+
+  // CSS hex values for the colors in `patterns.named`, used to match named-color violations
+  // against tokens. transparent/currentColor are deliberately absent: they never get a suggestion.
+  namedColorHex: {
+    white: '#ffffff',
+    black: '#000000',
+    gray: '#808080',
+    grey: '#808080',
+    red: '#ff0000',
+    blue: '#0000ff',
+    teal: '#008080',
+    green: '#008000',
+    yellow: '#ffff00',
+    orange: '#ffa500',
+  } as Record<string, string>,
 };
 
 // Git commands used by getChangedFiles() to discover modified/staged/untracked files.

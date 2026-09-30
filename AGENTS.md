@@ -26,9 +26,11 @@ with file, line, column, property and value.
 ## 2. Architecture map
 
 ```
-cli.ts                      commander entry; owns flags (--changed, --variables), exit codes, summary
+cli.ts                      commander entry; owns flags (-c/--changed, -t/--tokens), exit codes, summary
   └─ utils/file-finder.ts   findFiles() | getChangedFiles()  → absolute paths to scan
+                            findTokenFiles()                  → sourceOfTruth files (when no --tokens)
   └─ core/variables.ts      loadVariables() → TokenMap; suggestVariable(value, tokens)
+                            → every match in file then declaration order; the first is the primary
   └─ core/scanner.ts        scanFile(path) → ColorViolation[]
        ├─ scanCssFile()     .css/.scss/.less → PostCSS AST (postcss-scss syntax)
        └─ scanTextFile()    .ts/.js/.html    → maskComments() + regex per line
@@ -60,8 +62,14 @@ a call site.
 Two pattern sets live there, deliberately: `patterns` is **global and unanchored** — it *finds*
 colors inside a larger string (the scanner). `valuePatterns` is **anchored** — it tests whether a
 whole string *is* one color, which is what validating a single declared token value needs
-(`core/variables.ts`). Keep them in sync: `valuePatterns.hex` currently covers only hex, so the
-token loader only ever recognises hex-valued tokens.
+(`core/variables.ts`). Keep them in sync: `valuePatterns` covers hex, rgb and hsl; named colors
+are matched through `namedColorHex` instead (which deliberately omits `transparent`/`currentColor`,
+so those never get a suggestion). All four normalize to `#rrggbbaa` before comparing.
+
+There is deliberately **no ranking** of multiple matching tokens: the primary suggestion is the
+first match in `TokenMap` order (file order as passed to `loadVariables()`, then declaration order).
+Context-based ranking was built and removed as not worth its complexity — see the
+`suggest-css-variable` PRD Non-goals before re-adding it.
 
 ⚠️ One rule is *not* centrally applied: the **`sourceOfTruth` filename filter lives only in
 `file-finder.ts`** (both `findFiles` and `getChangedFiles` apply it). `scanFile()` has no

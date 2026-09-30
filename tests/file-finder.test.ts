@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { execSync } from 'node:child_process';
-import { findFiles, getChangedFiles } from '../src/utils/file-finder';
+import { findFiles, getChangedFiles, findTokenFiles } from '../src/utils/file-finder';
 
 function write(dir: string, rel: string, content = ''): void {
   const full = path.join(dir, rel);
@@ -94,5 +94,29 @@ describe('findFiles vs getChangedFiles parity', () => {
     const viaChanged = relPaths(await getChangedFiles(tmp), tmp);
 
     expect(viaChanged).toEqual(viaFind);
+  });
+});
+
+// Supports AC-19..AC-21: auto-discovery of the token files that feed suggestions.
+describe('findTokenFiles', () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'color-lint-tokens-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('finds every source-of-truth file at any depth, sorted, and skips excluded folders', async () => {
+    write(tmp, 'styles/_variables.scss', '$a: #fff;');
+    write(tmp, 'styles/_variables-new.scss', '$b: #000;');
+    write(tmp, 'node_modules/lib/_variables.scss', '$c: #f00;'); // excluded folder
+    write(tmp, 'styles/theme.scss', '$d: #0f0;'); // not a source-of-truth name
+
+    const result = await findTokenFiles(tmp);
+
+    expect(relPaths(result, tmp)).toEqual(['styles/_variables-new.scss', 'styles/_variables.scss']);
   });
 });

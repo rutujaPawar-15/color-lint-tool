@@ -4,6 +4,9 @@ import fs from 'node:fs';
 import { execSync } from 'node:child_process';
 import { SCAN_CONFIG, GIT_CHANGED_FILES_COMMANDS } from '../core/constants';
 
+// fast-glob ignore patterns for SCAN_CONFIG.exclude, shared by findFiles and findTokenFiles.
+const EXCLUDE_GLOBS = SCAN_CONFIG.exclude.map(folder => `**/${folder}/**`);
+
 // Finds all files in targetDir that match the configured extensions, excluding ignored folders and source-of-truth variable files.
 export async function findFiles(targetDir: string): Promise<string[]> {
   const extPattern = SCAN_CONFIG.extensions.map(ext => ext.replace('.', '')).join(',');
@@ -11,7 +14,7 @@ export async function findFiles(targetDir: string): Promise<string[]> {
 
   const files = await fg(searchPattern, {
     cwd: targetDir,
-    ignore: SCAN_CONFIG.exclude.map(folder => `**/${folder}/**`),
+    ignore: EXCLUDE_GLOBS,
     absolute: true,
   });
 
@@ -20,6 +23,18 @@ export async function findFiles(targetDir: string): Promise<string[]> {
     const fileName = path.basename(file);
     return !SCAN_CONFIG.sourceOfTruth.includes(fileName);
   });
+}
+
+// Finds the design-token files (SCAN_CONFIG.sourceOfTruth basenames) in targetDir, excluding ignored folders.
+export async function findTokenFiles(targetDir: string): Promise<string[]> {
+  const files = await fg(SCAN_CONFIG.sourceOfTruth.map(name => `**/${name}`), {
+    cwd: targetDir,
+    ignore: EXCLUDE_GLOBS,
+    absolute: true,
+  });
+
+  // Sorted so tokens merge in a deterministic order across runs and platforms
+  return files.sort();
 }
 
 // Returns absolute paths of files in the working tree that have been modified (staged, unstaged, or untracked),

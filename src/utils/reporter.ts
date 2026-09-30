@@ -28,6 +28,16 @@ export function reportViolations(violations: ColorViolation[], targetDir: string
         chalk.gray(': ') +
         chalk.red.bold(v.value)
       );
+
+      // Only the primary (first) suggestion is named; the rest are summarised as a count.
+      if (v.suggestions?.length) {
+        const [primary, ...others] = v.suggestions;
+        console.log(
+          chalk.gray('     Suggestion: ') +
+          chalk.green(primary) +
+          (others.length ? chalk.gray(` (+${others.length} more)`) : '')
+        );
+      }
     }
   }
 }

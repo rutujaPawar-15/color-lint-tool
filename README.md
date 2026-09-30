@@ -50,6 +50,12 @@ color-lint --changed
 # Shorthand for --changed
 color-lint -c
 
+# Suggest replacement tokens from a specific design-token file
+color-lint --tokens path/to/tokens.scss
+
+# Shorthand for --tokens
+color-lint -t path/to/tokens.scss
+
 # Show all available options
 color-lint --help
 
@@ -58,6 +64,33 @@ color-lint -h
 ```
 
 > **Note:** `--changed` requires Git to be installed and the directory to be a Git repository.
+
+## Token Suggestions
+
+For every violation, ColorLint also suggests the design token that defines the same color, on its own line directly under the violation:
+
+```
+  ⚠  Line 4, Col 10  |  color: #0052cc
+     Suggestion: $primary-blue
+  ⚠  Line 9, Col 3  |  background: #fff
+     Suggestion: $white (+2 more)
+  ⚠  Line 12, Col 3  |  border-color: #123456
+```
+
+- **Where tokens come from:** by default, every `_variables.scss` and `_variables-new.scss` in the current directory (excluded folders like `node_modules/` are skipped). To use a specific file instead, pass `--tokens` (or `-t`):
+
+  ```bash
+  # Suggest tokens from this file only (path is relative to the current directory)
+  color-lint --tokens src/styles/tokens.scss
+  ```
+
+- **What counts as a token:** SCSS variables (`$primary-blue: #0052cc;`, suggested as `$primary-blue`) and CSS custom properties (`--primary-blue: #0052cc;`, suggested as `var(--primary-blue)`).
+- **How colors are matched:** by color, not by text. `#0052CC`, `#0052cc`, `rgb(0, 82, 204)` and `hsl(216, 100%, 40%)` all match the same token; `#fff` matches `#ffffff`; named colors like `white` match `#ffffff`. Alpha must match exactly, so `rgba(0, 82, 204, 0.5)` does not match `#0052cc`.
+- **No match:** the violation is reported as usual, with no suggestion. `transparent` and `currentColor` never get a suggestion.
+- **Several matching tokens:** only the first one is named, followed by how many others also match — `(+2 more)`. "First" means the token declared first; when tokens come from several auto-discovered files, those files are read in alphabetical path order.
+- If the `--tokens` file does not exist, or a token file cannot be parsed, ColorLint stops with an error and exit code `1`.
+
+Suggestions never change which violations are reported or the exit code.
 
 ## What Gets Ignored
 

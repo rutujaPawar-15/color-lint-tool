@@ -3,7 +3,9 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { scanFile } from './core/scanner';
 import { reportViolations } from './utils/reporter';
-import { findFiles, getChangedFiles } from './utils/file-finder';
+import path from 'node:path';
+import { findFiles, getChangedFiles, findTokenFiles } from './utils/file-finder';
+import { loadVariables, suggestVariable } from './core/variables';
 import { ColorViolation } from './core/types';
 
 const program = new Command();
@@ -12,6 +14,7 @@ program
   .name('color-lint')
   .description('Detect hardcoded colors, replace them with design tokens, and standardize your codebase.')
   .option('-c, --changed', 'Scan only changed files in the current directory and working tree (staged, unstaged, and untracked). Requires git to be installed and this directory to be a git repository.', false)
+  .option('-t, --tokens <path>', 'Design token file to suggest replacements from. Defaults to every _variables.scss / _variables-new.scss found in the current directory.')
   .action(async (options) => {
     const targetDir = process.cwd();
     const changedOnly: boolean = !!options.changed;
@@ -26,6 +29,12 @@ program
     ));
 
     try {
+      // 0. Load design tokens (explicit --tokens file, else auto-discovered source-of-truth files)
+      const tokenFiles = options.tokens
+        ? [path.resolve(targetDir, options.tokens)]
+        : await findTokenFiles(targetDir);
+      const tokens = loadVariables(tokenFiles);
+
       // 1. Find files to scan (either all matching files, or only those changed in git)
       const files = changedOnly
         ? await getChangedFiles(targetDir)
@@ -42,7 +51,10 @@ program
 
       // 2. Scan every file concurrently and collect all violations
       const results = await Promise.all(files.map(scanFile));
-      const allViolations: ColorViolation[] = results.flat();
+      const allViolations: ColorViolation[] = results.flat().map(v => ({
+        ...v,
+        suggestions: suggestVariable(v.value, tokens),
+      }));
 
       // 3. Print the report
       reportViolations(allViolations, targetDir);
