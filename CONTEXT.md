@@ -31,3 +31,21 @@ single canonical form, so equivalent spellings — `#fff`, `#ffffff`, `white`,
 ## Collision
 When more than one token resolves to the same color. All colliding tokens are offered as
 suggestions; the developer chooses the semantically correct one.
+
+## Fix (auto-fix)
+Replacing a hardcoded color in place with its token. Applies only to `.css`/`.scss` files.
+
+## Rewrite
+Writing a fixed file back to disk, preserving the original formatting and replacing only the
+exact color value.
+
+## Ambiguous match
+A color with more than one valid token candidate for its file. Resolved interactively (the
+developer is prompted per occurrence); skipped if unresolved.
+
+## Unfixable violation
+A flagged color that cannot be auto-fixed: it has no valid token for its file type, lives in a
+file type fix does not rewrite, or is in a token-definition file. Reported, never changed.
+
+## Dry run
+A preview pass of fix that reports intended changes without writing files or prompting.

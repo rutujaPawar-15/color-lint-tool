@@ -13,6 +13,58 @@ function globOptions(targetDir: string): fg.Options {
   };
 }
 
+// True when `filePath` resolves to a location inside `dir` (not the dir itself, not an
+// ancestor via "..", not a different drive). Used to reject explicit paths that point
+// outside the directory the command is run from.
+export function isWithinDir(dir: string, filePath: string): boolean {
+  const rel = path.relative(path.resolve(dir), path.resolve(filePath));
+  return rel.length > 0 && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+// The result of resolving user-supplied paths: files that resolved cleanly, plus the inputs
+// that pointed outside the directory or matched nothing (so the caller can report them).
+export interface ResolvedInputs {
+  files: string[];
+  outside: string[];  // inputs resolving outside targetDir
+  notFound: string[]; // inputs that are neither an existing file nor a matching glob
+}
+
+// Resolves user-supplied file paths or globs against targetDir. A literal existing file is
+// taken as-is; anything else is expanded as a glob. Inputs that point outside targetDir or
+// match no file are reported rather than silently dropped.
+export async function resolveInputPaths(targetDir: string, inputs: string[]): Promise<ResolvedInputs> {
+  const files = new Set<string>();
+  const outside: string[] = [];
+  const notFound: string[] = [];
+
+  for (const input of inputs) {
+    const abs = path.resolve(targetDir, input);
+
+    // A literal existing file: accept only if it lives inside targetDir.
+    if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+      if (isWithinDir(targetDir, abs)) files.add(abs);
+      else outside.push(input);
+      continue;
+    }
+
+    // Otherwise treat it as a glob. If the pattern itself escapes targetDir, flag it.
+    if (!isWithinDir(targetDir, abs) && input.includes('..')) {
+      outside.push(input);
+      continue;
+    }
+
+    const matches = await fg(input.replace(/\\/g, '/'), { cwd: targetDir, absolute: true });
+    const within = matches.filter((m) => isWithinDir(targetDir, m));
+    if (within.length === 0) {
+      notFound.push(input);
+      continue;
+    }
+    for (const m of within) files.add(m);
+  }
+
+  return { files: [...files], outside, notFound };
+}
+
 // Finds all files in targetDir that match the configured extensions, excluding ignored folders and source-of-truth variable files.
 export async function findFiles(targetDir: string): Promise<string[]> {
   const extPattern = SCAN_CONFIG.extensions.map(ext => ext.replace('.', '')).join(',');
@@ -27,18 +79,32 @@ export async function findFiles(targetDir: string): Promise<string[]> {
   });
 }
 
+// Returns the git repository root containing `cwd`, or null if cwd is not in a git repo.
+export function getRepoRoot(cwd: string): string | null {
+  try {
+    const out = execSync('git rev-parse --show-toplevel', {
+      cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+    return out || null;
+  } catch {
+    return null;
+  }
+}
+
 // Resolves which files define the design tokens the tool suggests against.
 // If `tokensOption` is given (a path or glob, relative to targetDir or absolute), it is used.
-// Otherwise it falls back to the source-of-truth variable files (e.g. _variables.scss) found
-// anywhere under targetDir. Returns absolute paths (may be empty — then no suggestions are made).
+// Otherwise it searches for the source-of-truth variable files (e.g. _variables.scss) across
+// the whole git repository (so they are found even when the command runs in a subfolder),
+// falling back to targetDir when not in a git repo. Returns absolute paths (may be empty).
 export async function resolveTokenSources(targetDir: string, tokensOption?: string): Promise<string[]> {
   if (tokensOption && tokensOption.trim()) {
     const pattern = tokensOption.trim().replace(/\\/g, '/');
     return fg(pattern, globOptions(targetDir));
   }
 
+  const searchBase = getRepoRoot(targetDir) ?? targetDir;
   const names = SCAN_CONFIG.sourceOfTruth.join(',');
-  return fg(`**/{${names}}`, globOptions(targetDir));
+  return fg(`**/{${names}}`, globOptions(searchBase));
 }
 
 // Returns absolute paths of files in the working tree that have been modified (staged, unstaged, or untracked),

@@ -29,6 +29,14 @@ patterns: {
   }
 };
 
+// True when the character just before `index` in `value` is part of an identifier or
+// variable name — meaning a named-color match there (e.g. "blue" inside "$primary-blue")
+// is a false positive and should be ignored. Shared by the scanner and the fixer.
+export function precededByIdentifierChar(value: string, index: number): boolean {
+  const charBefore = value[index - 1];
+  return charBefore !== undefined && /[-a-zA-Z0-9_$]/.test(charBefore);
+}
+
 // Git commands used by getChangedFiles() to discover modified/staged/untracked files.
 // --diff-filter=d excludes deletions; --relative keeps paths relative to cwd, not repo root.
 export const GIT_CHANGED_FILES_COMMANDS = [

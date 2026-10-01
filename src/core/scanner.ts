@@ -1,7 +1,7 @@
 import postcss from 'postcss';
 import scssPostcss from 'postcss-scss';
 import chalk from 'chalk';
-import { SCAN_CONFIG } from './constants';
+import { SCAN_CONFIG, precededByIdentifierChar } from './constants';
 import { ColorViolation } from './types';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
@@ -25,10 +25,7 @@ async function scanCssFile(filePath: string): Promise<ColorViolation[]> {
       while ((match = regex.exec(decl.value)) !== null) {
         // Guard against false positives for named colors that appear as part of
         // a variable reference, e.g. "blue" inside "$primary-blue".
-        // If the character immediately before the match is a word char or hyphen,
-        // it's part of a longer token — skip it.
-        const charBefore = decl.value[match.index - 1];
-        if (charBefore !== undefined && /[-a-zA-Z0-9_$]/.test(charBefore)) continue;
+        if (precededByIdentifierChar(decl.value, match.index)) continue;
 
         violations.push({
           file: filePath,
