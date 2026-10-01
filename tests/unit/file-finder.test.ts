@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { isWithinDir, resolveInputPaths } from '../../src/utils/file-finder';
+import { execSync } from 'node:child_process';
+import { isWithinDir, resolveInputPaths, getChangedFilesSince } from '../../src/utils/file-finder';
 
 describe('isWithinDir', () => {
   const base = path.resolve('/project/app');
@@ -69,5 +70,67 @@ describe('resolveInputPaths', () => {
     const r = await resolveInputPaths(root, [path.join(outsideDir, 'z.scss')]);
     expect(r.outside).toHaveLength(1);
     expect(r.files).toEqual([]);
+  });
+});
+
+describe('getChangedFilesSince', () => {
+  let repo: string;
+  const git = (args: string, cwd: string) =>
+    execSync(`git ${args}`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+
+  beforeAll(() => {
+    repo = fs.mkdtempSync(path.join(os.tmpdir(), 'clt-git-'));
+    git('init -q', repo);
+    git('config user.email t@t.com', repo);
+    git('config user.name t', repo);
+    git('config commit.gpgsign false', repo);
+    // Base commit on main: base.scss + a README (non-fixable type).
+    fs.writeFileSync(path.join(repo, 'base.scss'), '.base { color: #000; }');
+    fs.writeFileSync(path.join(repo, 'notes.md'), '# notes');
+    git('add -A', repo);
+    git('commit -q -m base', repo);
+    git('branch -M main', repo);
+    // Feature branch: add feature.scss + a .txt (non-scannable), modify base? no — keep base clean.
+    git('checkout -q -b feature', repo);
+    fs.writeFileSync(path.join(repo, 'feature.scss'), '.f { color: #fff; }');
+    fs.writeFileSync(path.join(repo, 'skip.txt'), 'not scannable');
+    git('add -A', repo);
+    git('commit -q -m feature', repo);
+  });
+
+  afterAll(() => {
+    fs.rmSync(repo, { recursive: true, force: true });
+  });
+
+  it('returns files committed on the branch since base', async () => {
+    const files = await getChangedFilesSince(repo, 'main');
+    const names = files.map((f) => path.basename(f));
+    expect(names).toContain('feature.scss');
+  });
+
+  it('does not include files that only exist on base', async () => {
+    const files = await getChangedFilesSince(repo, 'main');
+    expect(files.map((f) => path.basename(f))).not.toContain('base.scss');
+  });
+
+  it('filters out non-scannable file types', async () => {
+    const files = await getChangedFilesSince(repo, 'main');
+    expect(files.map((f) => path.basename(f))).not.toContain('skip.txt');
+  });
+
+  it('returns nothing when the branch equals base', async () => {
+    const files = await getChangedFilesSince(repo, 'feature');
+    expect(files).toEqual([]);
+  });
+
+  it('throws a clear error for an unknown base', async () => {
+    await expect(getChangedFilesSince(repo, 'no-such-branch')).rejects.toThrow(/base/i);
+  });
+
+  it('treats a base value with shell metacharacters as a literal ref (no shell execution)', async () => {
+    const sentinel = path.join(repo, 'pwned.txt');
+    // If the value were interpolated into a shell, this would create the file.
+    await expect(getChangedFilesSince(repo, `main; echo x > "${sentinel}"`)).rejects.toThrow(/base/i);
+    expect(fs.existsSync(sentinel)).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 import fg from 'fast-glob';
 import path from 'node:path';
 import fs from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import { SCAN_CONFIG, GIT_CHANGED_FILES_COMMANDS } from '../core/constants';
 
 // Shared fast-glob options: search under targetDir, skip excluded folders, return absolute paths.
@@ -126,12 +126,19 @@ export async function getChangedFiles(targetDir: string): Promise<string[]> {
     );
   }
 
+  return filterChangedPaths(targetDir, changed);
+}
+
+// Applies the scan rules (allowed extension, excluded folder, not a source-of-truth file, still
+// exists on disk) to a set of cwd-relative paths, returning the absolute paths that qualify.
+// Shared by getChangedFiles (working tree) and getChangedFilesSince (branch vs base).
+function filterChangedPaths(targetDir: string, relPaths: Iterable<string>): string[] {
   const allowedExts = new Set(SCAN_CONFIG.extensions.map(e => e.toLowerCase()));
   const excludedFolders = new Set(SCAN_CONFIG.exclude);
   const sourceOfTruth = new Set(SCAN_CONFIG.sourceOfTruth);
 
   const filtered: string[] = [];
-  for (const rel of changed) {
+  for (const rel of relPaths) {
     if (!allowedExts.has(path.extname(rel).toLowerCase())) continue;
 
     const segments = rel.split(/[\\/]/);
@@ -146,4 +153,25 @@ export async function getChangedFiles(targetDir: string): Promise<string[]> {
   }
 
   return filtered;
+}
+
+// Returns absolute paths of files changed on the current branch relative to `base` — i.e. a
+// PR's file set, `git diff <base>...HEAD` (three-dot / merge-base, committed changes only) —
+// filtered by the same rules as findFiles. Throws a clear error if the base cannot be diffed.
+export async function getChangedFilesSince(targetDir: string, base: string): Promise<string[]> {
+  let out: string;
+  try {
+    // execFileSync (no shell) so the branch value is passed as a single argument — avoids
+    // shell interpretation of spaces/metacharacters in `base`.
+    out = execFileSync('git', ['diff', '--name-only', '--diff-filter=d', '--relative', `${base}...HEAD`], {
+      cwd: targetDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (err: any) {
+    throw new Error(
+      `Could not diff against base '${base}'. Ensure the branch exists and this is a git repository.\n${err.stderr?.toString?.() || err.message || err}`
+    );
+  }
+
+  const changed = out.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  return filterChangedPaths(targetDir, changed);
 }

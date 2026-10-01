@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import path from 'node:path';
 import { scanFile } from './core/scanner';
 import { reportViolations } from './utils/reporter';
-import { findFiles, getChangedFiles, resolveTokenSources, resolveInputPaths, isWithinDir } from './utils/file-finder';
+import { findFiles, getChangedFiles, getChangedFilesSince, resolveTokenSources, resolveInputPaths, isWithinDir } from './utils/file-finder';
 import { TokenMap } from './core/token-map';
 import { fixFile } from './core/fixer';
 import { createPromptResolver } from './utils/prompt';
@@ -20,32 +20,45 @@ program
   .name('color-lint')
   .description('Detect hardcoded colors, replace them with design tokens, and standardize your codebase.')
   .option('-c, --changed', 'Scan only changed files in the current directory and working tree (staged, unstaged, and untracked). Requires git to be installed and this directory to be a git repository.', false)
+  .option('-b, --base <branch>', "Scan only files changed on the current branch relative to <branch> (a PR's files: git diff <branch>...HEAD). Mutually exclusive with --changed.")
   .option('-t, --tokens <path>', 'Path or glob to the file(s) that define your color design tokens. Defaults to source-of-truth variable files (e.g. _variables.scss) found in the directory.')
   .action(async (options) => {
     const targetDir = process.cwd();
     const changedOnly: boolean = !!options.changed;
+    const baseBranch: string | undefined = options.base;
     const tokensOption: string | undefined = options.tokens;
+
+    if (baseBranch && changedOnly) {
+      console.error(chalk.red('Error: --base and --changed cannot be used together. Pick one.'));
+      process.exit(1);
+    }
 
     console.log(chalk.bgBlue.white.bold(
       `\n 🔍 Starting ColorLint Tool...\n`
     ));
     console.log(chalk.cyan(
-      changedOnly
-        ? `Scanning changed files in ${targetDir}\n`
-        : `Scanning ${targetDir}\n`
+      baseBranch
+        ? `Scanning files changed vs ${baseBranch} in ${targetDir}\n`
+        : changedOnly
+          ? `Scanning changed files in ${targetDir}\n`
+          : `Scanning ${targetDir}\n`
     ));
 
     try {
-      // 1. Find files to scan (either all matching files, or only those changed in git)
-      const files = changedOnly
-        ? await getChangedFiles(targetDir)
-        : await findFiles(targetDir);
+      // 1. Find files to scan: PR diff vs a base branch, working-tree changes, or everything.
+      const files = baseBranch
+        ? await getChangedFilesSince(targetDir, baseBranch)
+        : changedOnly
+          ? await getChangedFiles(targetDir)
+          : await findFiles(targetDir);
 
       if (files.length === 0) {
         console.log(chalk.yellow(
-          changedOnly
-            ? 'No changed files to scan.'
-            : 'No matching files found in the current directory.'
+          baseBranch
+            ? `No changed files vs ${baseBranch} to scan.`
+            : changedOnly
+              ? 'No changed files to scan.'
+              : 'No matching files found in the current directory.'
         ));
         return;
       }
@@ -91,19 +104,26 @@ program
   .description('Replace hardcoded colors in CSS/SCSS files with their design tokens. Prompts when a color maps to more than one token.')
   .argument('[paths...]', 'Specific file(s) or glob(s) to fix. Defaults to all CSS/SCSS files in the directory.')
   .option('-c, --changed', 'Fix only changed files (staged, unstaged, and untracked). Requires a git repository. Ignored when explicit paths are given.', false)
+  .option('-b, --base <branch>', "Fix only files changed on the current branch relative to <branch> (a PR's files). Mutually exclusive with --changed; ignored when explicit paths are given.")
   .option('-t, --tokens <path>', 'Path or glob to the file(s) that define your color design tokens. Defaults to source-of-truth variable files (e.g. _variables.scss) found in the directory.')
   .option('--dry-run', 'Preview what would change without writing files or prompting.', false)
   .action(async (paths: string[], _options, command) => {
     const targetDir = process.cwd();
-    // Read options with globals: because the root program also declares --changed and
+    // Read options with globals: because the root program also declares --changed, --base and
     // --tokens, Commander attributes those flags to the parent when they appear after the
     // `fix` subcommand, so the subcommand's local opts would miss them. optsWithGlobals
     // merges both so the flags work regardless of where Commander parsed them.
     const options = command.optsWithGlobals();
     const changedOnly: boolean = !!options.changed;
+    const baseBranch: string | undefined = options.base;
     const dryRun: boolean = !!options.dryRun;
     const tokensOption: string | undefined = options.tokens;
     const hasExplicitPaths = paths.length > 0;
+
+    if (!hasExplicitPaths && baseBranch && changedOnly) {
+      console.error(chalk.red('Error: --base and --changed cannot be used together. Pick one.'));
+      process.exit(1);
+    }
 
     console.log(chalk.bgBlue.white.bold(`\n 🛠  ColorLint Fix${dryRun ? ' (dry run)' : ''}...\n`));
 
@@ -147,9 +167,11 @@ program
       const tokenFileSet = new Set(tokenFiles.map(f => path.resolve(f)));
       const allFiles = hasExplicitPaths
         ? explicitFiles
-        : changedOnly
-          ? await getChangedFiles(targetDir)
-          : await findFiles(targetDir);
+        : baseBranch
+          ? await getChangedFilesSince(targetDir, baseBranch)
+          : changedOnly
+            ? await getChangedFiles(targetDir)
+            : await findFiles(targetDir);
       const files = allFiles.filter(f =>
         FIXABLE_EXTENSIONS.includes(path.extname(f).toLowerCase()) &&
         !tokenFileSet.has(path.resolve(f))

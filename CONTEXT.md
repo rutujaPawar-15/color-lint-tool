@@ -49,3 +49,10 @@ file type fix does not rewrite, or is in a token-definition file. Reported, neve
 
 ## Dry run
 A preview pass of fix that reports intended changes without writing files or prompting.
+
+## Base branch
+The branch a PR targets — the comparison point for `--base`.
+
+## PR change set
+The files changed on the current branch relative to its base (`<base>...HEAD`, committed changes
+since the branch diverged). Distinct from the working-tree **changed files** set used by `--changed`.

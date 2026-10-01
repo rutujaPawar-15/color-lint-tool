@@ -67,6 +67,9 @@ color-lint
 # Scan only files that are staged, unstaged, or untracked in your working tree
 color-lint --changed          # or: color-lint -c
 
+# Scan only a PR's files — those changed on this branch vs a base branch
+color-lint --base main        # or: color-lint -b main
+
 # Use a specific token source instead of the auto-discovered _variables files
 color-lint --tokens ./src/styles/tokens.css   # or: -t
 
@@ -102,6 +105,9 @@ color-lint fix --dry-run
 # Fix only git-changed files
 color-lint fix --changed       # or: color-lint fix -c
 
+# Fix only a PR's files (changed on this branch vs a base branch)
+color-lint fix --base main     # or: color-lint fix -b main
+
 # Fix specific file(s) or a glob
 color-lint fix src/card.scss
 color-lint fix "src/**/*.scss"
@@ -128,7 +134,9 @@ Safeguards:
 - An explicit path that is **outside the current directory** or that **does not exist** is rejected
   with a clear error before anything runs.
 
-> **Note:** `--changed` requires Git to be installed and the directory to be a Git repository.
+> **Note:** `--changed` and `--base` require Git and a Git repository. `--changed` looks at your
+> working tree (uncommitted edits); `--base <branch>` looks at commits on your branch since it
+> diverged from `<branch>` (a PR's files). The two are mutually exclusive — pick one.
 
 ## What Gets Ignored
 
