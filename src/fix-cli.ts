@@ -4,10 +4,10 @@ import chalk from 'chalk';
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
-import { findFiles, getChangedFiles, findTokenFiles } from './utils/file-finder';
+import { findFiles, getChangedFiles, findTokenFiles, resolveSingleFile, resolveTokenFile } from './utils/file-finder';
 import { loadVariables } from './core/variables';
 import { isFixable, parseForFix, fixFile, ChooseToken, STOP } from './core/fixer';
-import { formatFileHeader, formatViolationLine } from './utils/reporter';
+import { formatFileHeader, formatViolationLine, warnTokenFile } from './utils/reporter';
 
 // Indent of everything printed under a violation line, matching the reporter's Suggestion line.
 const INDENT = '     ';
@@ -64,22 +64,41 @@ program
   .name('color-lint-fix')
   .description('Replace hard-coded colors in .scss / .css files with their matching design token.')
   .option('-c, --changed', 'Fix only changed files in the current directory and working tree (staged, unstaged, and untracked). Requires git.', false)
+  .option('-f, --file <path>', 'Fix only this one .scss / .css file (relative to the current directory, or absolute). Cannot be combined with --changed.')
   .option('-t, --tokens <path>', 'Design token file to replace colors with. Defaults to every _variables.scss / _variables-new.scss found in the current directory.')
   .action(async (options) => {
     const targetDir = process.cwd();
     let reader: ReturnType<typeof createLineReader> | undefined;
 
     try {
+      if (options.file && options.changed) throw new Error('Use either --file or --changed, not both.');
+
       // 1. Tokens and files — chosen exactly as color-lint chooses them
+      //    A broken --tokens file is fatal; a broken discovered one is only a warning.
       const tokenFiles = options.tokens
-        ? [path.resolve(targetDir, options.tokens)]
+        ? [resolveTokenFile(targetDir, options.tokens)]
         : await findTokenFiles(targetDir);
-      const tokens = loadVariables(tokenFiles);
+      const tokens = loadVariables(tokenFiles, options.tokens ? undefined : warnTokenFile);
 
       // A --tokens file inside the scanned tree is where colors are defined: never edit it.
       const tokenPaths = new Set(tokenFiles.map((f) => path.resolve(f)));
-      const files = (options.changed ? await getChangedFiles(targetDir) : await findFiles(targetDir))
-        .filter((f) => isFixable(f) && !tokenPaths.has(path.resolve(f)));
+      let files: string[];
+      if (options.file) {
+        // A named file is refused with its reason, rather than silently filtered like discovered ones.
+        const { file, skipReason } = resolveSingleFile(targetDir, options.file);
+        const reason = skipReason
+          ?? (!isFixable(file) ? 'color-lint-fix only fixes .scss / .css files'
+            : tokenPaths.has(file) ? 'it is the --tokens file'
+            : null);
+        if (reason) {
+          console.log(chalk.yellow(`Skipped ${options.file}: ${reason}.`));
+          return;
+        }
+        files = [file];
+      } else {
+        files = (options.changed ? await getChangedFiles(targetDir) : await findFiles(targetDir))
+          .filter((f) => isFixable(f) && !tokenPaths.has(path.resolve(f)));
+      }
 
       // 2. Parse every file before prompting or writing, so a parse error modifies nothing
       const parsed = files.map((f) => parseForFix(f, fs.readFileSync(f, 'utf8')));

@@ -26,10 +26,18 @@ with file, line, column, property and value.
 ## 2. Architecture map
 
 ```
-cli.ts                      commander entry; owns flags (-c/--changed, -t/--tokens), exit codes, summary
+cli.ts                      commander entry; owns flags (-c/--changed, -f/--file, -t/--tokens), exit codes, summary
   └─ utils/file-finder.ts   findFiles() | getChangedFiles()  → absolute paths to scan
-                            findTokenFiles()                  → sourceOfTruth files (when no --tokens)
-  └─ core/variables.ts      loadVariables() → TokenMap; suggestVariable(value, tokens)
+                            resolveSingleFile()               → one -f path + skip reason (same rules as
+                            getChangedFiles, via private skipReason()); throws File is outside the current directory (checked first) / File not found / Not a file
+                            findTokenFiles()                  → sourceOfTruth files (when no --tokens), searched from
+                            the cwd's git repo root (the cwd when not a repo) — wider than the scan scope
+                            resolveTokenFile()                → -t path, bounded by the cwd's git repo root
+                            (`git rev-parse --show-toplevel`; the cwd when not a repo), compared via realpath
+                            (Windows 8.3 short names); throws before any existence check
+  └─ core/variables.ts      loadVariables(paths, onError?) → TokenMap; with onError an unloadable file is
+                            skipped (CLIs pass reporter's warnTokenFile for discovered files), without it throws
+                            suggestVariable(value, tokens)
                             → every match in file then declaration order; the first is the primary
   └─ core/scanner.ts        scanFile(path) → ColorViolation[]
        ├─ scanCssFile()     .css/.scss/.less → PostCSS AST (postcss-scss syntax)
@@ -38,7 +46,7 @@ cli.ts                      commander entry; owns flags (-c/--changed, -t/--toke
 core/constants.ts           SCAN_CONFIG + GIT_CHANGED_FILES_COMMANDS
 core/types.ts               ColorViolation
 
-fix-cli.ts                  second binary `color-lint-fix`; same -t/-c resolution as cli.ts, minus token
+fix-cli.ts                  second binary `color-lint-fix`; same -t/-c/-f resolution as cli.ts, minus token
                             files and non-fixable types; stdin line prompt (number / s / q; Ctrl+C = q);
                             parse all → pick all → write all. Prints via reporter's formatFileHeader /
                             formatViolationLine so its lines match color-lint's byte for byte
@@ -52,7 +60,7 @@ fix-cli.ts                  second binary `color-lint-fix`; same -t/-c resolutio
 Exit code: `color-lint` → `1` if any violation found (or on fatal error), `0` otherwise.
 `color-lint-fix` → `0` once the run completes (even with violations left, or stopped with `q`), `130` when
 stopped by SIGINT at a prompt (picks so far are still written), `1` only on fatal error (missing
-`--tokens` file, unparseable file) — and then no file is written.
+`--tokens` file missing / unparseable / outside the repo, unparseable file to fix, outside-cwd / missing / non-file `--file`, `--file` with `--changed`) — and then no file is written.
 `color-lint` never writes files; only `color-lint-fix` does.
 
 ## 3. Two comment-ignoring mechanisms — why

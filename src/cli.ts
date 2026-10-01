@@ -2,9 +2,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { scanFile } from './core/scanner';
-import { reportViolations } from './utils/reporter';
-import path from 'node:path';
-import { findFiles, getChangedFiles, findTokenFiles } from './utils/file-finder';
+import { reportViolations, warnTokenFile } from './utils/reporter';
+import { findFiles, getChangedFiles, findTokenFiles, resolveSingleFile, resolveTokenFile } from './utils/file-finder';
 import { loadVariables, suggestVariable } from './core/variables';
 import { ColorViolation } from './core/types';
 
@@ -14,6 +13,7 @@ program
   .name('color-lint')
   .description('Detect hardcoded colors, replace them with design tokens, and standardize your codebase.')
   .option('-c, --changed', 'Scan only changed files in the current directory and working tree (staged, unstaged, and untracked). Requires git to be installed and this directory to be a git repository.', false)
+  .option('-f, --file <path>', 'Scan only this one file (relative to the current directory, or absolute). It must pass the same rules as a full scan. Cannot be combined with --changed.')
   .option('-t, --tokens <path>', 'Design token file to suggest replacements from. Defaults to every _variables.scss / _variables-new.scss found in the current directory.')
   .action(async (options) => {
     const targetDir = process.cwd();
@@ -29,16 +29,28 @@ program
     ));
 
     try {
-      // 0. Load design tokens (explicit --tokens file, else auto-discovered source-of-truth files)
-      const tokenFiles = options.tokens
-        ? [path.resolve(targetDir, options.tokens)]
-        : await findTokenFiles(targetDir);
-      const tokens = loadVariables(tokenFiles);
+      if (options.file && changedOnly) throw new Error('Use either --file or --changed, not both.');
 
-      // 1. Find files to scan (either all matching files, or only those changed in git)
-      const files = changedOnly
-        ? await getChangedFiles(targetDir)
-        : await findFiles(targetDir);
+      // 0. Load design tokens (explicit --tokens file, else auto-discovered source-of-truth files).
+      //    A broken --tokens file is fatal; a broken discovered one is only a warning.
+      const tokens = options.tokens
+        ? loadVariables([resolveTokenFile(targetDir, options.tokens)])
+        : loadVariables(await findTokenFiles(targetDir), warnTokenFile);
+
+      // 1. Find files to scan (one named file, all matching files, or only those changed in git)
+      let files: string[];
+      if (options.file) {
+        const { file, skipReason } = resolveSingleFile(targetDir, options.file);
+        if (skipReason) {
+          console.log(chalk.yellow(`Skipped ${options.file}: ${skipReason}.`));
+          return;
+        }
+        files = [file];
+      } else {
+        files = changedOnly
+          ? await getChangedFiles(targetDir)
+          : await findFiles(targetDir);
+      }
 
       if (files.length === 0) {
         console.log(chalk.yellow(

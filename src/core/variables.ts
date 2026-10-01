@@ -7,7 +7,9 @@ export type TokenMap = Map<string, string[]>;
 
 // Reads design-token files and indexes every `$name: <color>` / `--name: <color>` declaration
 // by its normalized color. A token declared more than once keeps its last value (SCSS semantics).
-export function loadVariables(paths: string[]): TokenMap {
+// A file that cannot be read or parsed throws, unless onError is given: then it is passed the error
+// and the file is skipped.
+export function loadVariables(paths: string[], onError?: (err: Error) => void): TokenMap {
   const colorByRef = new Map<string, string>();
 
   for (const file of paths) {
@@ -16,7 +18,10 @@ export function loadVariables(paths: string[]): TokenMap {
       root = postcssScss.parse(fs.readFileSync(file, 'utf8'), { from: file });
     } catch (err: any) {
       const reason = err.code === 'ENOENT' ? 'file not found' : err.reason || err.message;
-      throw new Error(`Could not load design token file ${file}: ${reason}`);
+      const error = new Error(`Could not load design token file ${file}: ${reason}`);
+      if (!onError) throw error;
+      onError(error);
+      continue;
     }
 
     root.walkDecls((decl) => {

@@ -51,3 +51,8 @@ export function reportViolations(violations: ColorViolation[], targetDir: string
     }
   }
 }
+
+// Printed to stderr, by both binaries, for an auto-discovered token file that loadVariables() could not load.
+export function warnTokenFile(err: Error): void {
+  console.error(chalk.yellow(`Warning: ${err.message}. Its tokens are ignored.`));
+}

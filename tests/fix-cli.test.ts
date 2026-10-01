@@ -510,3 +510,163 @@ describe('color-lint-fix — stopping early', { timeout: 60_000 }, () => {
     expect(lastLine(stdout)).toBe('Replaced 0 color(s) in 0 file(s); 0 without a matching token, 0 skipped.');
   });
 });
+
+// single-file PRD: -f / --file limits color-lint-fix to one file, under the same rules as discovery.
+describe('color-lint-fix --file (single-file)', { timeout: 60_000 }, () => {
+  it('AC-2: rewrites only the named file and counts 1 file', () => {
+    write(tmp, '_variables.scss', '$primary-blue: #0052cc;\n$red: #ff0000;');
+    write(tmp, 'a.scss', 'a { color: #0052cc; }');
+    write(tmp, 'b.scss', 'b { color: #ff0000; }'); // single-match, but not named: untouched
+
+    const { stdout, status } = fix(tmp, ['-f', 'a.scss']);
+
+    expect(read(tmp, 'a.scss')).toBe('a { color: $primary-blue; }');
+    expect(read(tmp, 'b.scss')).toBe('b { color: #ff0000; }');
+    expect(lastLine(stdout)).toMatch(/^Replaced 1 color\(s\) in 1 file\(s\)/);
+    expect(status).toBe(0);
+  });
+
+  it('AC-4: a relative and an absolute path produce the same rewrite', () => {
+    write(tmp, '_variables.scss', '$primary-blue: #0052cc;');
+    write(tmp, 'src/a.scss', 'a { color: #0052cc; }');
+    fix(tmp, ['-f', 'src/a.scss']);
+    const viaRelative = read(tmp, 'src/a.scss');
+
+    write(tmp, 'src/a.scss', 'a { color: #0052cc; }'); // fresh copy
+    fix(tmp, ['--file', path.join(tmp, 'src', 'a.scss')]);
+
+    expect(viaRelative).toBe('a { color: $primary-blue; }');
+    expect(read(tmp, 'src/a.scss')).toBe(viaRelative);
+  });
+
+  it('AC-6: a clean file is unchanged and the summary counts 0 / 0', () => {
+    write(tmp, '_variables.scss', '$primary-blue: #0052cc;');
+    write(tmp, 'clean.scss', 'a { margin: 0; }');
+
+    const { stdout, status } = fix(tmp, ['-f', 'clean.scss']);
+
+    expect(read(tmp, 'clean.scss')).toBe('a { margin: 0; }');
+    expect(lastLine(stdout)).toMatch(/^Replaced 0 color\(s\) in 0 file\(s\)/);
+    expect(status).toBe(0);
+  });
+
+  it('AC-8: --tokens still supplies the replacement', () => {
+    write(tmp, 'a.scss', 'a { color: #0052cc; }');
+    write(tmp, 'tokens.scss', '$primary-blue: #0052cc;');
+
+    fix(tmp, ['-f', 'a.scss', '-t', 'tokens.scss']);
+
+    expect(read(tmp, 'a.scss')).toBe('a { color: $primary-blue; }');
+  });
+
+  it('EC-2: a missing file is a fatal error and modifies nothing', () => {
+    write(tmp, '_variables.scss', '$primary-blue: #0052cc;');
+    write(tmp, 'a.scss', 'a { color: #0052cc; }');
+    const before = snapshot(tmp);
+
+    const { stderr, status } = fix(tmp, ['-f', 'missing.scss']);
+
+    expect(stderr).toContain('Fatal Error: File not found: missing.scss');
+    expect(status).toBe(1);
+    expect(snapshot(tmp)).toEqual(before);
+  });
+
+  it('EC-4: --file with --changed is a fatal error and the file is unchanged', () => {
+    write(tmp, '_variables.scss', '$primary-blue: #0052cc;');
+    write(tmp, 'a.scss', 'a { color: #0052cc; }');
+
+    const { stderr, status } = fix(tmp, ['-f', 'a.scss', '-c']);
+
+    expect(stderr).toContain('Fatal Error: Use either --file or --changed, not both.');
+    expect(status).toBe(1);
+    expect(read(tmp, 'a.scss')).toBe('a { color: #0052cc; }');
+  });
+
+  it('EC-9: a .ts file is skipped as not fixable and left unchanged', () => {
+    write(tmp, '_variables.scss', '$red: #ff0000;');
+    write(tmp, 'app.ts', "const c = '#ff0000';");
+
+    const { stdout, status } = fix(tmp, ['-f', 'app.ts']);
+
+    expect(stdout).toContain('Skipped app.ts: color-lint-fix only fixes .scss / .css files.');
+    expect(read(tmp, 'app.ts')).toBe("const c = '#ff0000';");
+    expect(status).toBe(0);
+  });
+
+  it('EC-10: the --tokens file itself is skipped and left unchanged', () => {
+    const content = '$primary-blue: #0052cc;\na { color: #0052cc; }';
+    write(tmp, 'tokens.scss', content);
+
+    const { stdout, status } = fix(tmp, ['-f', 'tokens.scss', '-t', 'tokens.scss']);
+
+    expect(stdout).toContain('Skipped tokens.scss: it is the --tokens file.');
+    expect(read(tmp, 'tokens.scss')).toBe(content);
+    expect(status).toBe(0);
+  });
+
+  it('EC-11: a source-of-truth file is skipped and left unchanged', () => {
+    write(tmp, '_variables.scss', '$primary-blue: #0052cc;');
+
+    const { stdout, status } = fix(tmp, ['-f', '_variables.scss']);
+
+    expect(stdout).toContain('Skipped _variables.scss: source-of-truth token file.');
+    expect(read(tmp, '_variables.scss')).toBe('$primary-blue: #0052cc;');
+    expect(status).toBe(0);
+  });
+
+  it('EC-14: a file outside the cwd is a fatal error, unchanged, with no prompt', () => {
+    const cwd = path.join(tmp, 'root');
+    write(cwd, '_variables.scss', '$primary-blue: #0052cc;');
+    write(tmp, 'outside/x.scss', 'a { color: #0052cc; }'); // single-match: would be rewritten if scanned
+
+    const { stdout, stderr, status } = fix(cwd, ['-f', '../outside/x.scss']);
+
+    expect(stderr).toContain('Fatal Error: File is outside the current directory: ../outside/x.scss');
+    expect(status).toBe(1);
+    expect(read(tmp, 'outside/x.scss')).toBe('a { color: #0052cc; }');
+    expect(stdout).not.toContain('Pick a token');
+  });
+});
+
+// suggest-css-variable PRD (2026-10-01): the --tokens boundary and the auto-discovery warning apply to the fixer too.
+describe('color-lint-fix — token file boundary and unparseable token files', { timeout: 60_000 }, () => {
+  it('AC-43: a --tokens file outside the repository is fatal and nothing is modified', () => {
+    const repo = path.join(tmp, 'repo');
+    write(repo, 'a.scss', 'a { color: #0052cc; }'); // single-match against the outside file: would be rewritten
+    write(tmp, 'other/colors.scss', '$primary-blue: #0052cc;');
+    execSync('git init', { cwd: repo, stdio: 'ignore' });
+
+    const { stderr, status } = fix(repo, ['-t', '../other/colors.scss']);
+
+    expect(stderr).toContain('Fatal Error: Token file is outside the repository: ../other/colors.scss');
+    expect(status).toBe(1);
+    expect(read(repo, 'a.scss')).toBe('a { color: #0052cc; }');
+  });
+
+  it('EC-24: an unparseable auto-discovered token file is a warning; the other files still fix', () => {
+    write(tmp, 'styles/_variables.scss', 'a { color: #fff;'); // unclosed block
+    write(tmp, 'styles/_variables-new.scss', '$primary-blue: #0052cc;');
+    write(tmp, 'src/app.scss', 'a { color: #0052cc; }');
+
+    const { stderr, status } = fix(tmp);
+
+    expect(stderr).toMatch(/Warning: Could not load design token file \S*[\/]_variables\.scss.*\. Its tokens are ignored\./);
+    expect(read(tmp, 'src/app.scss')).toBe('a { color: $primary-blue; }');
+    expect(status).toBe(0);
+  });
+});
+
+// suggest-css-variable PRD (2026-10-01): without -t, token auto-discovery searches the whole git repo.
+describe('color-lint-fix — repo-wide token discovery', { timeout: 60_000 }, () => {
+  it('AC-47: from a repo subdirectory, a token file elsewhere in the repo feeds the fix', () => {
+    const repo = path.join(tmp, 'repo');
+    write(repo, 'styles/_variables.scss', '$primary-blue: #0052cc;'); // outside the cwd, inside the repo
+    write(repo, 'app/a.scss', 'a { color: #0052cc; }'); // single match: applied with no prompt
+    execSync('git init', { cwd: repo, stdio: 'ignore' });
+
+    const { status } = fix(path.join(repo, 'app'));
+
+    expect(read(repo, 'app/a.scss')).toBe('a { color: $primary-blue; }');
+    expect(status).toBe(0);
+  });
+});

@@ -66,3 +66,7 @@ export const GIT_CHANGED_FILES_COMMANDS = [
   'git diff --name-only --cached --diff-filter=d --relative',  // staged modifications
   'git ls-files --others --exclude-standard',                  // untracked (new) files — already cwd-relative
 ];
+
+// Git command used by resolveTokenFile() to find the repository a --tokens path must stay inside,
+// and by findTokenFiles() to find the repository it auto-discovers token files in.
+export const GIT_REPO_ROOT_COMMAND = 'git rev-parse --show-toplevel';

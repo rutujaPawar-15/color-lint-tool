@@ -50,6 +50,12 @@ color-lint --changed
 # Shorthand for --changed
 color-lint -c
 
+# Scan only one file (relative to the current directory, or absolute)
+color-lint --file src/styles/app.scss
+
+# Shorthand for --file
+color-lint -f src/styles/app.scss
+
 # Suggest replacement tokens from a specific design-token file
 color-lint --tokens path/to/tokens.scss
 
@@ -65,6 +71,14 @@ color-lint -h
 
 > **Note:** `--changed` requires Git to be installed and the directory to be a Git repository.
 
+**Scanning a single file (`--file`):** the file must pass the same rules as a full scan, or it is skipped with the reason (exit code `0`), never scanned:
+
+- `Skipped notes.md: not a scannable file type.`: not one of `.css`, `.scss`, `.html`, `.ts`, `.js`.
+- `Skipped node_modules/lib/x.scss: inside an excluded folder.`: under `node_modules/`, `dist/`, `.git/`, `vendor/`, `out/` or `bin/`.
+- `Skipped _variables.scss: source-of-truth token file.`: a `_variables.scss` / `_variables-new.scss`.
+
+The file must be inside the current directory or one of its subfolders: a path that resolves outside it, relative (`../shared/x.scss`) or absolute, is an error (`Fatal Error: File is outside the current directory: <path>`, exit code `1`). A `--tokens` file may still sit outside it. A path that does not exist (`Fatal Error: File not found: <path>`) or is a directory (`Fatal Error: Not a file: <path>`) is an error with exit code `1`. `--file` cannot be combined with `--changed` (`Fatal Error: Use either --file or --changed, not both.`, exit code `1`). Tokens are still auto-discovered across the whole current directory unless `--tokens` is given.
+
 ## Token Suggestions
 
 For every violation, ColorLint also suggests the design token that defines the same color, on its own line directly under the violation:
@@ -77,7 +91,7 @@ For every violation, ColorLint also suggests the design token that defines the s
   ⚠  Line 12, Col 3  |  border-color: #123456
 ```
 
-- **Where tokens come from:** by default, every `_variables.scss` and `_variables-new.scss` in the current directory (excluded folders like `node_modules/` are skipped). To use a specific file instead, pass `--tokens` (or `-t`):
+- **Where tokens come from:** by default, every `_variables.scss` and `_variables-new.scss` anywhere in the git repository that contains the current directory, so running from a subfolder still finds tokens defined higher up or in a sibling folder. Outside a git repository, only the current directory is searched. Excluded folders like `node_modules/` are skipped. Only the token search widens: the files that get checked are still the ones under the current directory. To use a specific file instead, pass `--tokens` (or `-t`):
 
   ```bash
   # Suggest tokens from this file only (path is relative to the current directory)
@@ -88,7 +102,9 @@ For every violation, ColorLint also suggests the design token that defines the s
 - **How colors are matched:** by color, not by text. `#0052CC`, `#0052cc`, `rgb(0, 82, 204)` and `hsl(216, 100%, 40%)` all match the same token; `#fff` matches `#ffffff`; named colors like `white` match `#ffffff`. Alpha must match exactly, so `rgba(0, 82, 204, 0.5)` does not match `#0052cc`.
 - **No match:** the violation is reported as usual, with no suggestion. `transparent` and `currentColor` never get a suggestion.
 - **Several matching tokens:** only the first one is named, followed by how many others also match — `(+2 more)`. "First" means the token declared first; when tokens come from several auto-discovered files, those files are read in alphabetical path order.
-- If the `--tokens` file does not exist, or a token file cannot be parsed, ColorLint stops with an error and exit code `1`.
+- **Where a `--tokens` file may be:** anywhere inside the git repository that contains the current directory, so `-t ../shared/tokens.scss` from a sub-project works. A path outside the repository, relative or absolute, is an error (`Fatal Error: Token file is outside the repository: <path>`, exit code `1`). When the current directory is not in a git repository, the file must be inside the current directory instead (`Fatal Error: Token file is outside the current directory: <path>`). The same rule applies to `color-lint-fix`.
+- If the `--tokens` file does not exist or cannot be parsed, ColorLint stops with an error and exit code `1`.
+- If an auto-discovered token file cannot be parsed, ColorLint prints `Warning: Could not load design token file <path>: <reason>. Its tokens are ignored.` to stderr and carries on with the other token files. The exit code is unaffected. `color-lint-fix` does the same.
 
 Suggestions never change which violations are reported or the exit code.
 
@@ -105,7 +121,12 @@ color-lint-fix --tokens path/to/tokens.scss
 
 # Fix only files that are staged, unstaged, or untracked (shorthand: -c)
 color-lint-fix --changed
+
+# Fix only one file (shorthand: -f)
+color-lint-fix --file src/styles/app.scss
 ```
+
+With `--file`, the same rules as `color-lint --file` apply. In addition, a file `color-lint-fix` would never edit is skipped with the reason and exit code `0`: `Skipped app.ts: color-lint-fix only fixes .scss / .css files.` or `Skipped tokens.scss: it is the --tokens file.` A missing file, a file outside the current directory, or `--file` together with `--changed`, is a fatal error (exit code `1`), and no file is modified.
 
 - **One matching token:** replaced without asking.
 - **Several matching tokens:** you pick one for **each occurrence**. The output uses the same colors and layout as `color-lint`: one `📄` header per file, then a block per occurrence:
@@ -143,7 +164,7 @@ color-lint-fix --changed
   Replaced 1 color(s) in 1 file(s); 1 without a matching token, 1 skipped.
   ```
 
-  The exit code is `0` even when violations remain, including after `q`. It is `130` when the run was stopped with Ctrl+C at a prompt. It is `1` only on a fatal error: a missing `--tokens` file, or a file that cannot be parsed. In both cases **no** file is modified.
+  The exit code is `0` even when violations remain, including after `q`. It is `130` when the run was stopped with Ctrl+C at a prompt. It is `1` only on a fatal error: a `--tokens` file that is missing, cannot be parsed, or is outside the repository, a file to fix that cannot be parsed, a `--file` path that is outside the current directory, missing, or not a file, or `--file` combined with `--changed`. In both cases **no** file is modified.
 
 ## What Gets Ignored
 

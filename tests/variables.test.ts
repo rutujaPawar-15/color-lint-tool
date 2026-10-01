@@ -179,3 +179,27 @@ describe('suggestVariable — order across token files', () => {
     expect(suggestVariable('#fff', tokensFromFiles(files))).toEqual(['$old-white', '$white']);
   });
 });
+
+// Supports EC-23 / EC-24: auto-discovered token files that cannot be parsed are skipped, not fatal.
+describe('loadVariables — per-file error callback', () => {
+  it('with a callback, an unparseable file is reported to it and skipped; other files still load', () => {
+    const broken = path.join(tmp, '_variables.scss');
+    const good = path.join(tmp, '_variables-new.scss');
+    fs.writeFileSync(broken, 'a { color: #fff;'); // unclosed block
+    fs.writeFileSync(good, '$primary-blue: #0052cc;');
+    const errors: string[] = [];
+
+    const tokens = loadVariables([broken, good], (err) => errors.push(err.message));
+
+    expect(suggestVariable('#0052cc', tokens)).toEqual(['$primary-blue']);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain(`Could not load design token file ${broken}`);
+  });
+
+  it('without a callback, an unparseable file still throws', () => {
+    const broken = path.join(tmp, 'broken.scss');
+    fs.writeFileSync(broken, 'a { color: #fff;');
+
+    expect(() => loadVariables([broken])).toThrow(`Could not load design token file ${broken}`);
+  });
+});

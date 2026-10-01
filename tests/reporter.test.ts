@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import chalk from 'chalk';
 import * as path from 'node:path';
-import { reportViolations } from '../src/utils/reporter';
+import { reportViolations, warnTokenFile } from '../src/utils/reporter';
 import { ColorViolation } from '../src/core/types';
 
 const targetDir = path.resolve('/project');
@@ -49,5 +49,18 @@ describe('reportViolations — suggestions', () => {
     expect(lines[violationIndex(4)]).toBe('  ⚠  Line 4, Col 10  |  color: #0052cc');
     expect(lines[violationIndex(5)]).toBe('  ⚠  Line 5, Col 10  |  color: #0052cc');
     expect(lines.some((l) => l.includes('Suggestion:'))).toBe(false);
+  });
+});
+
+// Supports EC-23 / EC-24: the one warning line both binaries print for an unloadable discovered token file.
+describe('warnTokenFile', () => {
+  it('prints "Warning: <loadVariables error>. Its tokens are ignored." to stderr, not stdout', () => {
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((msg: string) => { errors.push(msg); });
+
+    warnTokenFile(new Error('Could not load design token file styles/_variables.scss: Unclosed block'));
+
+    expect(errors).toEqual(['Warning: Could not load design token file styles/_variables.scss: Unclosed block. Its tokens are ignored.']);
+    expect(lines).toEqual([]);
   });
 });
